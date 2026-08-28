@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../main.dart';
 import '../services/api_service.dart';
 import '../services/audio_service.dart';
 
@@ -15,6 +16,7 @@ class ChatMessage {
   final String? suggestion;
   final DateTime timestamp;
   bool isSpeaking;
+  final String? elevenLabsAudio;
 
   ChatMessage({
     required this.text,
@@ -22,6 +24,7 @@ class ChatMessage {
     this.suggestion,
     required this.timestamp,
     this.isSpeaking = false,
+    this.elevenLabsAudio,
   });
 }
 
@@ -29,13 +32,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final _messageController = TextEditingController();
   final List<ChatMessage> _messages = [
     ChatMessage(
-      text: 'Hello! I am your Autonomous Financial Copilot. I continuously monitor your real bank transactions, checking buffer, and scheduled obligations directly from PostgreSQL. Ask me anything about your balance, cashflow, or discretionary spend safety.',
+      text: 'Hello! I am your Autonomous Financial Copilot powered by ElevenLabs Neural Voice & Gemini. You can speak to me with the microphone for real-time speech-to-speech deliberation over your PostgreSQL cashflow graph.',
       isUser: false,
       timestamp: DateTime.now(),
       isSpeaking: false,
     ),
   ];
   bool _isLoading = false;
+  bool _isListening = false;
+  bool _speechToSpeechMode = true;
 
   @override
   void dispose() {
@@ -44,7 +49,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     super.dispose();
   }
 
-  void _toggleSpeech(ChatMessage msg) {
+  void _toggleSpeech(ChatMessage msg) async {
     setState(() {
       if (msg.isSpeaking) {
         AudioService.stop();
@@ -56,12 +61,49 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           m.isSpeaking = false;
         }
         msg.isSpeaking = true;
-        AudioService.speak(msg.text);
       }
     });
+
+    if (msg.isSpeaking) {
+      if (msg.elevenLabsAudio != null && msg.elevenLabsAudio!.isNotEmpty) {
+        AudioService.speak(msg.text, elevenLabsAudioBase64: msg.elevenLabsAudio);
+      } else {
+        // Fetch ElevenLabs high-fidelity neural audio on the fly
+        final elevenLabsAudio = await ApiService.generateElevenLabsSpeech(msg.text);
+        if (mounted && msg.isSpeaking) {
+          AudioService.speak(msg.text, elevenLabsAudioBase64: elevenLabsAudio);
+        }
+      }
+    }
   }
 
-  void _sendMessage(String text) async {
+  void _toggleVoiceInput() {
+    if (_isListening) {
+      AudioService.stopListening();
+      setState(() => _isListening = false);
+    } else {
+      AudioService.stop();
+      setState(() => _isListening = true);
+      AudioService.listenToSpeech((spokenText) {
+        if (!mounted) return;
+        setState(() => _isListening = false);
+        if (spokenText.startsWith('ERROR:')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Voice Recognition: ${spokenText.replaceAll("ERROR:", "").trim()}'),
+              backgroundColor: const Color(0xFFC62828),
+            ),
+          );
+        } else if (spokenText.trim().isNotEmpty) {
+          _messageController.text = spokenText;
+          // In Speech-to-Speech mode: automatically submit the voice query
+          _sendMessage(spokenText, fromVoice: true);
+        }
+      });
+    }
+  }
+
+  void _sendMessage(String text, {bool fromVoice = false}) async {
     final query = text.trim();
     if (query.isEmpty) return;
 
@@ -77,33 +119,39 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _isLoading = true;
     });
 
-    final res = await ApiService.sendChatMessage(query);
+    final uid = AppSession.userId ?? ApiService.demoUserId;
+    final res = await ApiService.sendChatMessage(query, userId: uid);
 
-    setState(() {
-      _isLoading = false;
-      if (res != null && res['reply'] != null) {
-        final replyText = res['reply'];
+    if (!mounted) return;
+
+    final replyText = res != null && res['reply'] != null
+        ? res['reply'] as String
+        : 'Your current liquid buffer is ₹12,000 in HDFC Checking. You face a ₹16,000 rent deficit on Day 5 due to delayed gig payments.';
+
+    // Generate ElevenLabs high-fidelity neural voice audio
+    String? elevenLabsAudio;
+    if (_speechToSpeechMode || fromVoice) {
+      elevenLabsAudio = await ApiService.generateElevenLabsSpeech(replyText);
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
         final botMsg = ChatMessage(
           text: replyText,
           isUser: false,
-          suggestion: res['actionSuggestion'],
+          suggestion: res?['actionSuggestion'],
           timestamp: DateTime.now(),
-          isSpeaking: true,
+          isSpeaking: _speechToSpeechMode || fromVoice,
+          elevenLabsAudio: elevenLabsAudio,
         );
         _messages.add(botMsg);
-        AudioService.speak(replyText);
-      } else {
-        const fallback = 'Your current liquid buffer is ₹12,000 in HDFC Checking. You face a ₹16,000 rent deficit on Day 5 due to delayed gig payments.';
-        final botMsg = ChatMessage(
-          text: fallback,
-          isUser: false,
-          timestamp: DateTime.now(),
-          isSpeaking: true,
-        );
-        _messages.add(botMsg);
-        AudioService.speak(fallback);
-      }
-    });
+
+        if (_speechToSpeechMode || fromVoice) {
+          AudioService.speak(replyText, elevenLabsAudioBase64: elevenLabsAudio);
+        }
+      });
+    }
   }
 
   @override
@@ -120,6 +168,21 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ],
         ),
         actions: [
+          Row(
+            children: [
+              Text(
+                _speechToSpeechMode ? 'S2S ON' : 'S2S OFF',
+                style: const TextStyle(color: Colors.white70, fontSize: 10.5, fontWeight: FontWeight.bold),
+              ),
+              Switch(
+                value: _speechToSpeechMode,
+                activeColor: const Color(0xFF7BA8FF),
+                onChanged: (val) {
+                  setState(() => _speechToSpeechMode = val);
+                },
+              ),
+            ],
+          ),
           IconButton(
             icon: const Icon(Icons.volume_off_rounded, color: Colors.white),
             tooltip: 'Mute all audio',
@@ -208,20 +271,43 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                     child: TextField(
                       controller: _messageController,
                       decoration: InputDecoration(
-                        hintText: 'Ask about your balance, rent, or cashflow...',
-                        hintStyle: const TextStyle(color: Color(0xFF8A99AD), fontSize: 12.5),
+                        hintText: _isListening ? 'Listening to your voice...' : 'Ask about your balance, rent, or cashflow...',
+                        hintStyle: TextStyle(
+                          color: _isListening ? const Color(0xFF1548DC) : const Color(0xFF8A99AD),
+                          fontSize: 12.5,
+                          fontWeight: _isListening ? FontWeight.bold : FontWeight.normal,
+                        ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         filled: true,
-                        fillColor: const Color(0xFFF4F7FC),
+                        fillColor: _isListening ? const Color(0xFFEBF1FF) : const Color(0xFFF4F7FC),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
+                          borderSide: _isListening ? const BorderSide(color: Color(0xFF1548DC), width: 1.5) : BorderSide.none,
                         ),
                       ),
-                      onSubmitted: _sendMessage,
+                      onSubmitted: (val) => _sendMessage(val),
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // Microphone button for Voice-to-Text & Speech-to-Speech
+                  Tooltip(
+                    message: _isListening ? 'Stop listening' : 'Voice Input (Speech-to-Text)',
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      decoration: BoxDecoration(
+                        color: _isListening ? Colors.red.shade600 : const Color(0xFFEBF1FF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: Icon(
+                          _isListening ? Icons.mic_off_rounded : Icons.mic_rounded,
+                          color: _isListening ? Colors.white : const Color(0xFF1548DC),
+                        ),
+                        onPressed: _toggleVoiceInput,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
                   IconButton(
                     icon: const Icon(Icons.send_rounded, color: Color(0xFF1548DC)),
                     onPressed: () => _sendMessage(_messageController.text),
@@ -278,7 +364,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       Icon(Icons.smart_toy_rounded, color: Color(0xFF1548DC), size: 14),
                       SizedBox(width: 6),
                       Text(
-                        'Origin Copilot',
+                        'Finova Copilot',
                         style: TextStyle(color: Color(0xFF1548DC), fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ],

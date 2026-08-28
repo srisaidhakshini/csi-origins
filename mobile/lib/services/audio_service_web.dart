@@ -33,3 +33,40 @@ void openWebUrl(String url, {bool usePopup = false}) {
   }
 }
 
+void playWebBase64Audio(String base64Audio) {
+  try {
+    js.context.callMethod('playBase64Audio', [base64Audio]);
+  } catch (e) {
+    // ignore
+  }
+}
+
+void stopWebBase64Audio() {
+  try {
+    js.context.callMethod('stopBase64Audio');
+  } catch (e) {
+    // ignore
+  }
+}
+
+void startWebSpeechRecognition(Function(String text) onResult) {
+  try {
+    js.context['__onSpeechResult'] = (dynamic text) {
+      if (text != null) {
+        onResult(text.toString());
+      }
+    };
+    js.context.callMethod('startSpeechRecognition', ['__onSpeechResult']);
+  } catch (e) {
+    // ignore
+  }
+}
+
+void stopWebSpeechRecognition() {
+  try {
+    js.context.callMethod('stopSpeechRecognition');
+  } catch (e) {
+    // ignore
+  }
+}
+

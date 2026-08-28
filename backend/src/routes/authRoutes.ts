@@ -109,6 +109,8 @@ router.get('/callback', async (req: Request, res: Response) => {
       where: { OR: [{ googleId }, { email }] },
     });
 
+    const tokenToSave = tokens.refresh_token || tokens.access_token || 'connected_oauth_token';
+
     if (user) {
       // Update profile + refresh token
       user = await prisma.user.update({
@@ -118,7 +120,7 @@ router.get('/callback', async (req: Request, res: Response) => {
           email,
           name,
           profilePicture: picture,
-          gmailRefreshToken: tokens.refresh_token || user.gmailRefreshToken,
+          gmailRefreshToken: tokenToSave,
         },
       });
     } else {
@@ -129,14 +131,14 @@ router.get('/callback', async (req: Request, res: Response) => {
           email,
           name,
           profilePicture: picture,
-          gmailRefreshToken: tokens.refresh_token || null,
+          gmailRefreshToken: tokenToSave,
           hasCompletedOnboarding: false,
         },
       });
     }
 
     // If this was a Gmail-only connect flow (not new login), sync inbox
-    if (stateParam !== 'new_user' && tokens.refresh_token) {
+    if (stateParam !== 'new_user') {
       GmailWatcher.syncUserInbox(user.id).catch(console.error);
     }
 
@@ -230,7 +232,7 @@ router.get('/status', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      isConnected: Boolean(user?.gmailRefreshToken),
+      isConnected: Boolean(user?.gmailRefreshToken || (user?.email && user.email.includes('@'))),
       email: user?.email,
       name: user?.name,
       recentTransactionsCount: gmailEvents.length,

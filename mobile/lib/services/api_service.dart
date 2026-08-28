@@ -417,6 +417,27 @@ class ApiService {
     return null;
   }
 
+  /// Generate high-fidelity ElevenLabs Neural Speech Audio for text
+  static Future<String?> generateElevenLabsSpeech(String text) async {
+    final uri = Uri.parse('$baseUrl/voice/tts');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'text': text}),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['audioBase64'] != null) {
+          return data['audioBase64'];
+        }
+      }
+    } catch (e) {
+      debugPrint('Error calling ElevenLabs TTS API: $e');
+    }
+    return null;
+  }
+
   /// Trigger Gmail Transaction Ingestion Sync
   static Future<Map<String, dynamic>?> syncGmail({required String userId}) async {
     final uri = Uri.parse('$baseUrl/auth/google/sync');
@@ -452,11 +473,12 @@ class ApiService {
   }
 
   /// Update User Preferences (SMS/Gmail config)
-  static Future<bool> updatePreferences({required String userId, bool? smsEnabled}) async {
+  static Future<bool> updatePreferences({required String userId, bool? smsEnabled, bool? gmailEnabled}) async {
     final uri = Uri.parse('$baseUrl/users/preferences');
     try {
       final Map<String, dynamic> body = {'userId': userId};
       if (smsEnabled != null) body['smsEnabled'] = smsEnabled;
+      if (gmailEnabled != null) body['gmailEnabled'] = gmailEnabled;
       
       final response = await http.put(
         uri,

@@ -1,0 +1,69 @@
+services:
+  # PostgreSQL Database Service
+  postgres:
+    image: postgres:16-alpine
+    container_name: finova-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: financial_agent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d financial_agent"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finova-network
+
+  # Node.js / Express / Prisma Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: finova-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/financial_agent?schema=public
+      PORT: 3000
+      NODE_ENV: production
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-AQ.Ab8RN6Jfu7Rlm-rx54XXsXKfiGBh7U3NBS9VlwOhWMZpYLHnNA}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-AQ.Ab8RN6Jfu7Rlm-rx54XXsXKfiGBh7U3NBS9VlwOhWMZpYLHnNA}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-sk_6cb750e0bffb73a78ad7312f97b64af1f59ab8d427fdeb26}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-21m00Tcm4TlvDq8ikWAM}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-919709061892-op8p9gblpjbrehf4q0efduohja8mklhv.apps.googleusercontent.com}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-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}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:3000/api/auth/google/callback}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - finova-network
+
+  # Flutter Web Frontend Service (Nginx)
+  frontend:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    container_name: finova-frontend
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - finova-network
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  finova-network:
+    driver: bridge

@@ -47,18 +47,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _toggleGmail(bool value) async {
+    final userId = AppSession.userId;
+    setState(() => _gmailEnabled = value);
+
+    if (userId != null) {
+      await ApiService.updatePreferences(userId: userId, gmailEnabled: value);
+    }
+
     if (!value) {
-      // User turned off Gmail sync -> disconnect
-      final userId = AppSession.userId;
       if (userId != null) {
         await ApiService.disconnectGoogle(userId: userId);
-        setState(() => _gmailEnabled = false);
       }
     } else {
       // Launch Google OAuth
-      final userId = AppSession.userId ?? '';
-      AudioService.openUrl('${ApiService.baseUrl}/auth/google/connect-gmail?state=$userId', usePopup: true);
-      setState(() => _gmailEnabled = true);
+      final uid = userId ?? '';
+      AudioService.openUrl('${ApiService.baseUrl}/auth/google/connect-gmail?state=$uid', usePopup: true);
     }
   }
 

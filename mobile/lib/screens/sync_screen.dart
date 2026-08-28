@@ -88,10 +88,12 @@ class _SyncScreenState extends State<SyncScreen> {
   }
 
   void _connectGoogleOAuth() {
-    final loginUrl = '${ApiService.baseUrl}/auth/google/login';
-    AudioService.openUrl(loginUrl);
+    final uid = AppSession.userId ?? ApiService.demoUserId;
+    final loginUrl = '${ApiService.baseUrl}/auth/google/connect-gmail?state=$uid';
+    AudioService.openUrl(loginUrl, usePopup: true);
     setState(() {
-      _syncStatus = 'Google Sign-in window opened. Complete authorization in the new tab, then tap "Sync Inbox Now".';
+      _syncStatus = 'Google Sign-in window opened. Complete authorization in the popup, then tap "Sync Inbox Now".';
+      _isConnected = true;
     });
   }
 

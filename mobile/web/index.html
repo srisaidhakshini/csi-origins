@@ -72,32 +72,84 @@
       } catch (e) {}
     };
 
-    window.playRingtoneChime = function() {
+    // ElevenLabs Base64 Audio Player
+    let currentAudio = null;
+    window.playBase64Audio = function(base64Audio) {
       try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
-        
-        function playBeep(freq, startTime, duration) {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(freq, startTime);
-          gain.gain.setValueAtTime(0.2, startTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(startTime);
-          osc.stop(startTime + duration);
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio = null;
         }
-
-        const now = ctx.currentTime;
-        playBeep(523.25, now, 0.15); // C5
-        playBeep(659.25, now + 0.18, 0.25); // E5
-        playBeep(783.99, now + 0.45, 0.4); // G5
+        const audioSrc = "data:audio/mp3;base64," + base64Audio;
+        currentAudio = new Audio(audioSrc);
+        currentAudio.play();
       } catch (e) {
-        console.warn('AudioContext chime error:', e);
+        console.error('ElevenLabs audio playback error:', e);
       }
+    };
+
+    window.stopBase64Audio = function() {
+      try {
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio = null;
+        }
+      } catch (e) {}
+    };
+
+    // Speech-to-Text Recognition for Voice to Text & Speech to Speech
+    let recognition = null;
+    window.startSpeechRecognition = function(callbackName) {
+      try {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          console.warn('Web Speech API not supported on this browser');
+          if (window[callbackName]) window[callbackName]('ERROR: Speech recognition not supported in browser');
+          return;
+        }
+        if (recognition) {
+          recognition.abort();
+        }
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onresult = function(event) {
+          if (event.results && event.results.length > 0) {
+            const transcript = event.results[0][0].transcript;
+            console.log('🎤 Speech recognized:', transcript);
+            if (window[callbackName]) {
+              window[callbackName](transcript);
+            }
+          }
+        };
+
+        recognition.onerror = function(event) {
+          console.warn('🎤 Speech error:', event.error);
+          if (window[callbackName]) {
+            window[callbackName]('ERROR: ' + event.error);
+          }
+        };
+
+        recognition.onend = function() {
+          console.log('🎤 Speech recognition ended');
+        };
+
+        recognition.start();
+        console.log('🎤 Speech recognition started...');
+      } catch (e) {
+        console.error('Speech recognition exception:', e);
+      }
+    };
+
+    window.stopSpeechRecognition = function() {
+      try {
+        if (recognition) {
+          recognition.stop();
+          recognition = null;
+        }
+      } catch (e) {}
     };
   </script>
   <script src="flutter_bootstrap.js" async></script>

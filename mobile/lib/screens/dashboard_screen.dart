@@ -46,7 +46,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(Icons.terminal, color: Colors.white, size: 18),
             SizedBox(width: 8),
-            Text('ORIGIN // AUTONOMOUS FINANCIAL COPILOT'),
+            Text('FINOVA // AUTONOMOUS FINANCIAL COPILOT'),
           ],
         ),
         actions: [

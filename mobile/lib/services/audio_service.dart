@@ -11,17 +11,37 @@ class AudioService {
     }
   }
 
-  /// Speak copilot voice text out loud through browser audio
-  static void speak(String text) {
+  /// Speak copilot voice text out loud through browser audio or ElevenLabs
+  static void speak(String text, {String? elevenLabsAudioBase64}) {
     if (kIsWeb) {
-      speakWebCopilotAlert(text);
+      if (elevenLabsAudioBase64 != null && elevenLabsAudioBase64.isNotEmpty) {
+        playWebBase64Audio(elevenLabsAudioBase64);
+      } else {
+        speakWebCopilotAlert(text);
+      }
     }
   }
 
   /// Stop speech playback
   static void stop() {
     if (kIsWeb) {
+      stopWebBase64Audio();
       stopWebCopilotAlert();
+      stopWebSpeechRecognition();
+    }
+  }
+
+  /// Start speech recognition / voice-to-text input
+  static void listenToSpeech(Function(String text) onResult) {
+    if (kIsWeb) {
+      startWebSpeechRecognition(onResult);
+    }
+  }
+
+  /// Stop listening to speech
+  static void stopListening() {
+    if (kIsWeb) {
+      stopWebSpeechRecognition();
     }
   }
 

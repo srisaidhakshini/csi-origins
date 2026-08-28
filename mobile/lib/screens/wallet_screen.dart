@@ -123,7 +123,7 @@ class _WalletScreenState extends State<WalletScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Origin Dashboard', style: TextStyle(fontSize: 16)),
+            const Text('Finova', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             if (AppSession.userName != null && AppSession.userName!.isNotEmpty)
               Text('Welcome, ${AppSession.userName}', style: const TextStyle(fontSize: 12, color: Colors.white70)),
           ],
