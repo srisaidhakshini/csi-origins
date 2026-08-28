@@ -76,12 +76,16 @@ flowchart TD
     Gate -->|Emergency Alert| Voice
 ```
 
-<img width="716" height="1452" alt="image" src="https://github.com/user-attachments/assets/8c3b7565-01e0-405b-925c-a805ce4f0024" />
-<img width="716" height="1452" alt="image" src="https://github.com/user-attachments/assets/4827c5f9-20ef-49ac-ae57-c9d3d683d0d9" />
-<img width="716" height="1452" alt="image" src="https://github.com/user-attachments/assets/fff54d3d-b618-4b64-a717-d592f0e52e99" />
-<img width="716" height="1452" alt="image" src="https://github.com/user-attachments/assets/4dc7e7f8-37d5-4f9d-8622-b41d8f4077ce" />
+---
 
+## App Previews
 
+<p align="center">
+  <img width="220" alt="Finova Overview" src="https://github.com/user-attachments/assets/8c3b7565-01e0-405b-925c-a805ce4f0024" />
+  <img width="220" alt="Finova Chatbot" src="https://github.com/user-attachments/assets/4827c5f9-20ef-49ac-ae57-c9d3d683d0d9" />
+  <img width="220" alt="Finova Sync" src="https://github.com/user-attachments/assets/fff54d3d-b618-4b64-a717-d592f0e52e99" />
+  <img width="220" alt="Finova Voice Call" src="https://github.com/user-attachments/assets/4dc7e7f8-37d5-4f9d-8622-b41d8f4077ce" />
+</p>
 
 ---
 
@@ -148,4 +152,3 @@ flutter run -d chrome
 * **Deterministic Core**: Balances and graph cascades are calculated with exact relational math, reserving generative models for explanation and natural language interfaces.
 * **Zero Alert Fatigue**: Quantitative gate scores eliminate non-actionable notifications.
 * **Voice-First Experience**: Supports incoming emergency audio warnings and real-time voice conversations.
-
