@@ -1,4 +1,4 @@
-# AURA
+# FINOVA
 
 ### Autonomous Financial Intelligence for Variable-Income Users
 
@@ -14,7 +14,7 @@ Variable-income users receive financial information across SMS, emails, bills, a
 
 ## Our Solution
 
-AURA continuously ingests financial signals, builds an evolving financial state, detects risks, and proactively surfaces only the insights that matter.
+FINOVA continuously ingests financial signals, builds an evolving financial state, detects risks, and proactively surfaces only the insights that matter.
 
 ```text
 SMS + Gmail + Manual Input
@@ -80,9 +80,9 @@ SMS + Gmail + Manual Input
 
 ## The Core Idea
 
-> **AURA does not simply track transactions. It understands how financial events are connected and determines when the user needs to act.**
+> **FINOVA does not simply track transactions. It understands how financial events are connected and determines when the user needs to act.**
 
-A delayed income event can affect rent, savings, investments, and available cash. AURA identifies that cascade **before it becomes a missed financial obligation**.
+A delayed income event can affect rent, savings, investments, and available cash. FINOVA identifies that cascade **before it becomes a missed financial obligation**.
 
 ---
 
