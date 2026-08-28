@@ -62,7 +62,7 @@ SMS + Gmail + Manual Input
 
 ### Stitch
 
-**Used for:** Rapid UI generation and product interface development for the Flutter application, including the onboarding, financial insight feed, and explainability screens.
+**Used for:** Financial data analysis and intelligence, helping transform fragmented financial signals into actionable insights.
 
 ### ElevenLabs
 
