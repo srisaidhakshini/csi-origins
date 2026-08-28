@@ -1,38 +1,27 @@
 import 'package:flutter/foundation.dart';
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:js' as js;
+import 'audio_service_stub.dart'
+    if (dart.library.js) 'audio_service_web.dart'
+    if (dart.library.html) 'audio_service_web.dart';
 
 class AudioService {
   /// Play an incoming phone call chime sound
   static void playRingtone() {
     if (kIsWeb) {
-      try {
-        js.context.callMethod('playRingtoneChime');
-      } catch (e) {
-        debugPrint('Ringtone playback error: $e');
-      }
+      playWebRingtone();
     }
   }
 
   /// Speak copilot voice text out loud through browser audio
   static void speak(String text) {
     if (kIsWeb) {
-      try {
-        js.context.callMethod('speakCopilotAlert', [text]);
-      } catch (e) {
-        debugPrint('Web speech error: $e');
-      }
+      speakWebCopilotAlert(text);
     }
   }
 
   /// Stop speech playback
   static void stop() {
     if (kIsWeb) {
-      try {
-        js.context.callMethod('stopCopilotAlert');
-      } catch (e) {
-        debugPrint('Web speech stop error: $e');
-      }
+      stopWebCopilotAlert();
     }
   }
 }
