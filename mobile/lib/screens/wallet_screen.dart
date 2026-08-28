@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/insight.dart';
 import '../services/api_service.dart';
 import '../widgets/emergency_call_dialog.dart';
+import 'onboarding_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -19,6 +20,43 @@ class _WalletScreenState extends State<WalletScreen> {
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  void _confirmLogout() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Log out of Origin Copilot?', style: TextStyle(color: Color(0xFF1C2434), fontWeight: FontWeight.bold, fontSize: 16)),
+        content: const Text(
+          'You will be disconnected and returned to the profile onboarding setup.',
+          style: TextStyle(color: Color(0xFF5A6E85), fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8A99AD), fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadData() async {
@@ -72,7 +110,13 @@ class _WalletScreenState extends State<WalletScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            tooltip: 'Refresh Data',
             onPressed: _loadData,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.white),
+            tooltip: 'Log Out',
+            onPressed: _confirmLogout,
           ),
         ],
       ),
