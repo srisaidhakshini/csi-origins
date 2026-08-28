@@ -1,4 +1,4 @@
-# Finova
+<img width="716" height="1452" alt="image" src="https://github.com/user-attachments/assets/fd81c4fb-d3d9-418d-977e-ccd42e67aad6" /># Finova
 
 Autonomous Financial Intelligence Platform for Variable-Income Earners
 
@@ -85,6 +85,8 @@ flowchart TD
   <img width="220" alt="Finova Chatbot" src="https://github.com/user-attachments/assets/4827c5f9-20ef-49ac-ae57-c9d3d683d0d9" />
   <img width="220" alt="Finova Sync" src="https://github.com/user-attachments/assets/fff54d3d-b618-4b64-a717-d592f0e52e99" />
   <img width="220" alt="Finova Voice Call" src="https://github.com/user-attachments/assets/4dc7e7f8-37d5-4f9d-8622-b41d8f4077ce" />
+  <img width="220" alt="image" src="https://github.com/user-attachments/assets/1836762e-f4c8-40b1-8e93-1916a91a7e16" />
+
 </p>
 
 ---
