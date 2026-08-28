@@ -1,56 +1,40 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db/prisma';
+import { DEMO_USER_ID } from '../constants';
 
 const router = Router();
 
-// In-memory persistent user profile metadata store
-const userProfiles: Record<string, { name: string; email: string; archetype: string; netWorth: string }> = {
-  'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11': {
-    name: 'Gowreesh',
-    email: 'gowreesh@gmail.com',
-    archetype: 'Freelance Designer',
-    netWorth: '₹1,92,050.78',
-  },
-};
-
 /**
  * GET /api/users/:id
- * Get dynamic user profile including name, archetype, net worth, risk tolerance
+ * Get user profile and checking buffer balance
  */
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const profile = userProfiles[id] || {
-      name: 'Gowreesh',
-      email: 'gowreesh@gmail.com',
-      archetype: 'Freelance Designer',
-      netWorth: '₹1,92,050.78',
-    };
-
-    let user: any = null;
-    try {
-      user = await prisma.user.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          riskTolerance: true,
-          gmailRefreshToken: true,
-          createdAt: true,
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        obligations: true,
+        _count: {
+          select: { transactions: true, obligations: true },
         },
-      });
-    } catch (_) {}
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
 
     res.json({
       success: true,
       user: {
-        id,
-        name: profile.name,
-        email: profile.email,
-        archetype: profile.archetype,
-        netWorth: profile.netWorth,
-        riskTolerance: user?.riskTolerance || 'medium',
-        hasGmailConnected: Boolean(user?.gmailRefreshToken),
-        createdAt: user?.createdAt || new Date().toISOString(),
+        id: user.id,
+        persona: user.persona,
+        bufferBalance: Number(user.bufferBalance),
+        riskTolerance: user.riskTolerance,
+        hasGmailConnected: Boolean(user.gmailRefreshToken),
+        hasCompletedOnboarding: user._count.obligations > 0 || Number(user.bufferBalance) > 0,
+        obligations: user.obligations,
       },
     });
   } catch (error: any) {
@@ -60,38 +44,93 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/users/:id/profile
- * Update user name, archetype, email, or net worth dynamically
+ * POST /api/users/onboarding
+ * Directly saves user profile and monthly obligations into PostgreSQL
  */
-router.post('/:id/profile', async (req: Request, res: Response) => {
+router.post('/onboarding', async (req: Request, res: Response) => {
   try {
-    const id = req.params.id as string;
-    const { name, email, archetype, netWorth } = req.body;
+    const userId = req.body.userId || DEMO_USER_ID;
+    const {
+      persona = 'Freelance Designer',
+      bufferBalance = 12000,
+      primaryIncome = 35000,
+      incomeLabel = 'TechCorp Design Retainer',
+      rentAmount = 28000,
+      sipAmount = 5000,
+      riskTolerance = 'medium',
+    } = req.body;
 
-    if (!userProfiles[id]) {
-      userProfiles[id] = {
-        name: 'Gowreesh',
-        email: 'gowreesh@gmail.com',
-        archetype: 'Freelance Designer',
-        netWorth: '₹1,92,050.78',
-      };
-    }
+    const numBuffer = Number(bufferBalance) || 0;
+    const numIncome = Number(primaryIncome) || 0;
+    const numRent = Number(rentAmount) || 0;
+    const numSip = Number(sipAmount) || 0;
 
-    if (name) userProfiles[id].name = name.trim();
-    if (email) userProfiles[id].email = email.trim();
-    if (archetype) userProfiles[id].archetype = archetype.trim();
-    if (netWorth) userProfiles[id].netWorth = netWorth.trim();
+    // 1. Upsert User
+    const user = await prisma.user.upsert({
+      where: { id: userId },
+      update: {
+        persona,
+        bufferBalance: numBuffer,
+        riskTolerance: riskTolerance.toLowerCase(),
+      },
+      create: {
+        id: userId,
+        persona,
+        bufferBalance: numBuffer,
+        riskTolerance: riskTolerance.toLowerCase(),
+      },
+    });
+
+    // 2. Clear old obligations
+    await prisma.obligation.deleteMany({ where: { userId } });
+
+    // 3. Create Obligations
+    const obligationsData = [
+      {
+        userId,
+        label: incomeLabel || 'Primary Retainer Income',
+        amount: numIncome,
+        category: 'income',
+        type: 'inflow',
+        dueDay: 1,
+        critical: true,
+      },
+      {
+        userId,
+        label: 'Apartment Rent',
+        amount: numRent,
+        category: 'housing',
+        type: 'outflow',
+        dueDay: 5,
+        critical: true,
+      },
+      {
+        userId,
+        label: 'SIP Mutual Fund',
+        amount: numSip,
+        category: 'investment',
+        type: 'outflow',
+        dueDay: 10,
+        critical: true,
+      },
+    ];
+
+    await prisma.obligation.createMany({ data: obligationsData });
+
+    console.log(`✅ Onboarding complete for user ${userId}: Buffer set to ₹${numBuffer}, 3 obligations saved.`);
 
     res.json({
       success: true,
-      message: 'User profile updated successfully',
+      message: 'Onboarding completed and saved directly to PostgreSQL',
       user: {
-        id,
-        ...userProfiles[id],
+        id: user.id,
+        persona: user.persona,
+        bufferBalance: Number(user.bufferBalance),
+        riskTolerance: user.riskTolerance,
       },
     });
   } catch (error: any) {
-    console.error('Error updating user profile:', error);
+    console.error('Error in user onboarding:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -112,22 +151,19 @@ router.post('/:id/risk-tolerance', async (req: Request, res: Response) => {
       });
     }
 
-    try {
-      await prisma.user.update({
-        where: { id },
-        data: {
-          riskTolerance: riskTolerance.toLowerCase(),
-        },
-      });
-    } catch (_) {}
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        riskTolerance: riskTolerance.toLowerCase(),
+      },
+    });
 
     res.json({
       success: true,
       message: 'Risk tolerance updated successfully',
       user: {
-        id,
-        riskTolerance: riskTolerance.toLowerCase(),
-        updatedAt: new Date().toISOString(),
+        id: updatedUser.id,
+        riskTolerance: updatedUser.riskTolerance,
       },
     });
   } catch (error: any) {

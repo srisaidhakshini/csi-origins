@@ -8,7 +8,7 @@ const router = Router();
 
 /**
  * POST /api/events/ingest
- * Ingests financial event (SMS, Gmail, or Manual) and runs full pipeline
+ * Ingests financial event (SMS, Gmail, or Manual) and runs deduplication & balance update
  */
 router.post('/ingest', async (req: Request, res: Response) => {
   try {
@@ -44,10 +44,10 @@ router.post('/ingest', async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      message: 'Event processed successfully through ingestion, deduplication, and intervention gate',
+      message: 'Event processed and saved to transactions table',
       event,
+      transaction: pipelineResult.transaction,
       dedupResult: pipelineResult.dedupResult,
-      anomalyResult: pipelineResult.anomalyResult,
       insight: pipelineResult.insightCreated,
     });
   } catch (error: any) {
@@ -57,42 +57,8 @@ router.post('/ingest', async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/events/trigger-delay
- * Simulates a delayed income event to trigger causal cascade evaluation
- */
-router.post('/trigger-delay', async (req: Request, res: Response) => {
-  try {
-    const userId = req.body.userId || DEMO_USER_ID;
-    const delayDays = req.body.delayDays ? Number(req.body.delayDays) : 7;
-    let nodeId = req.body.nodeId;
-
-    if (!nodeId) {
-      const incomeNode = await prisma.node.findFirst({
-        where: { userId, type: 'income_source' },
-      });
-      if (!incomeNode) {
-        return res.status(404).json({ success: false, error: 'No income node found for user' });
-      }
-      nodeId = incomeNode.id;
-    }
-
-    const result = await PipelineCoordinator.processDelayedIncomeTrigger(userId, nodeId, delayDays);
-
-    res.json({
-      success: true,
-      message: `Delayed income cascade triggered (${delayDays} days delay)`,
-      cascadeEvaluation: result.cascadeEval,
-      insight: result.insightCreated,
-    });
-  } catch (error: any) {
-    console.error('Error triggering cascade delay:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
  * POST /api/events/ocr-scan
- * Ingests OCR scanned bill or receipt, extracts structured entities, and runs dedup & causal pipeline
+ * Ingests OCR scanned receipt/bill directly into transactions & obligations
  */
 router.post('/ocr-scan', async (req: Request, res: Response) => {
   try {
@@ -115,27 +81,24 @@ router.post('/ocr-scan', async (req: Request, res: Response) => {
 
     const pipelineResult = await PipelineCoordinator.processEvent(event);
 
-    // If marked as recurring obligation (e.g. Electricity, Broadband bill), ensure obligation node exists in causal graph
-    let obligationNode = null;
+    let obligation = null;
     if (isRecurringObligation && parsedAmount > 0) {
-      obligationNode = await prisma.node.upsert({
-        where: { id: `node_ocr_${parsedMerchant.toLowerCase().replace(/[^a-z0-9]/g, '_')}` },
-        update: { value: parsedAmount },
-        create: {
-          id: `node_ocr_${parsedMerchant.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+      obligation = await prisma.obligation.create({
+        data: {
           userId,
           label: parsedMerchant,
-          type: 'obligation',
-          value: parsedAmount,
-          confidence: 'confirmed',
-          metadata: { dueDate, invoiceNumber, source: 'ocr_scanner' },
+          amount: parsedAmount,
+          category: parsedCategory,
+          type: 'outflow',
+          dueDay: 7,
+          critical: false,
         },
       });
     }
 
     res.json({
       success: true,
-      message: 'OCR Bill successfully parsed, deduplicated & registered into Causal State Model',
+      message: 'OCR Bill successfully parsed and saved to database',
       extractedEntities: {
         merchant: parsedMerchant,
         amount: parsedAmount,
@@ -143,12 +106,10 @@ router.post('/ocr-scan', async (req: Request, res: Response) => {
         dueDate: dueDate || 'Due within 7 days',
         invoiceNumber: invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
         taxAmount: taxAmount || Math.round(parsedAmount * 0.18),
-        confidence: pipelineResult.dedupResult.finalConfidence,
-        isMerged: pipelineResult.dedupResult.isMerged,
       },
-      dedupResult: pipelineResult.dedupResult,
+      transaction: pipelineResult.transaction,
+      obligation,
       insight: pipelineResult.insightCreated,
-      obligationNode,
     });
   } catch (error: any) {
     console.error('Error processing OCR bill scan:', error);

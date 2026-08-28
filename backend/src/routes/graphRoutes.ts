@@ -1,88 +1,72 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db/prisma';
 import { DEMO_USER_ID } from '../constants';
-import { GraphManager } from '../graph/graphManager';
 
 const router = Router();
 
 /**
- * GET /api/graph/nodes
- * Returns all causal nodes for user
+ * GET /api/graph/nodes (or /api/graph/summary)
+ * Returns direct financial accounts, obligations, and recent transactions
  */
 router.get('/nodes', async (req: Request, res: Response) => {
   try {
     const userId = (req.query.userId as string) || DEMO_USER_ID;
-    const nodes = await prisma.node.findMany({
-      where: { userId },
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
       include: {
-        outEdges: {
-          include: { target: true },
-        },
-        inEdges: {
-          include: { source: true },
+        obligations: true,
+        transactions: {
+          take: 20,
+          orderBy: { timestamp: 'desc' },
         },
       },
-      orderBy: { updatedAt: 'asc' },
     });
+
+    const bufferBalance = Number(user?.bufferBalance || 0);
+
+    // Provide friendly structured nodes for backward compatibility
+    const nodes = [
+      {
+        id: 'node_buffer_checking',
+        type: 'buffer',
+        label: 'Primary Checking Buffer',
+        value: bufferBalance,
+        confidence: 'confirmed',
+      },
+      ...(user?.obligations.map(o => ({
+        id: o.id,
+        type: o.type === 'inflow' ? 'income_source' : 'obligation',
+        label: o.label,
+        value: Number(o.amount),
+        confidence: 'confirmed',
+        metadata: { category: o.category, dueDay: o.dueDay },
+      })) || []),
+    ];
 
     res.json({
       success: true,
       count: nodes.length,
+      bufferBalance,
       nodes,
+      transactions: user?.transactions || [],
+      obligations: user?.obligations || [],
     });
   } catch (error: any) {
-    console.error('Error fetching graph nodes:', error);
+    console.error('Error fetching financial summary:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 /**
  * GET /api/graph/edges
- * Returns all causal edges for user
  */
-router.get('/edges', async (req: Request, res: Response) => {
-  try {
-    const userId = (req.query.userId as string) || DEMO_USER_ID;
-    const edges = await prisma.edge.findMany({
-      where: {
-        source: { userId },
-      },
-      include: {
-        source: true,
-        target: true,
-      },
-    });
-
-    res.json({
-      success: true,
-      count: edges.length,
-      edges,
-    });
-  } catch (error: any) {
-    console.error('Error fetching graph edges:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * GET /api/graph/cascade/:nodeId
- * Runs recursive CTE cascade query starting from given nodeId
- */
-router.get('/cascade/:nodeId', async (req: Request, res: Response) => {
-  try {
-    const nodeId = req.params.nodeId as string;
-    const steps = await GraphManager.executeCascadeQuery(nodeId, 5);
-
-    res.json({
-      success: true,
-      rootNodeId: nodeId,
-      count: steps.length,
-      steps,
-    });
-  } catch (error: any) {
-    console.error('Error executing cascade query:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
+router.get('/edges', async (_req: Request, res: Response) => {
+  res.json({
+    success: true,
+    count: 0,
+    edges: [],
+  });
 });
 
 export default router;
