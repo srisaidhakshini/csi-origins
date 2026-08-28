@@ -34,32 +34,26 @@ class _GraphStateScreenState extends State<GraphStateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0F17),
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121622),
-        elevation: 0,
-        title: const Row(
-          children: [
-            Icon(Icons.hub_outlined, color: Colors.indigoAccent, size: 20),
-            SizedBox(width: 8),
-            Text(
-              'Causal State Model (Postgres)',
-              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
+        backgroundColor: Colors.white,
+        title: const Text('// CAUSAL STATE GRAPH (POSTGRESQL)'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white70),
+            icon: const Icon(Icons.refresh, color: Colors.black),
             onPressed: _loadGraph,
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(2),
+          child: Container(color: Colors.black, height: 2),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: _loadGraph,
-        color: Colors.indigoAccent,
+        color: Colors.black,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.indigoAccent))
+            ? const Center(child: CircularProgressIndicator(color: Colors.black))
             : ListView(
                 padding: const EdgeInsets.all(14),
                 children: [
@@ -67,159 +61,151 @@ class _GraphStateScreenState extends State<GraphStateScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF161A26),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.indigoAccent.withOpacity(0.3)),
+                      color: Colors.white,
+                      border: Border.all(color: Colors.black, width: 2),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black, offset: Offset(4, 4), blurRadius: 0),
+                      ],
                     ),
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.storage_rounded, color: Colors.indigoAccent, size: 18),
-                            SizedBox(width: 8),
-                            Text(
-                              'Adjacency List Graph in PostgreSQL',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                            ),
-                          ],
+                        Text(
+                          'RELATIONAL ADJACENCY CAUSAL GRAPH:',
+                          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.8),
                         ),
                         SizedBox(height: 6),
                         Text(
-                          'Graph modeled relational in nodes & edges tables. Cascades computed deterministically via Recursive CTE traversal.',
-                          style: TextStyle(color: Colors.white60, fontSize: 11, height: 1.35),
+                          'Stored in PostgreSQL nodes and edges tables. Cascades computed deterministically via Recursive CTE traversal without LLM hallucination.',
+                          style: TextStyle(color: Colors.black87, fontSize: 11, height: 1.35, fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 16),
 
-                  _buildCategorySection('INCOME SOURCES', 'income_source', Colors.greenAccent),
-                  _buildCategorySection('BUFFERS & ACCOUNTS', 'buffer', Colors.blueAccent),
-                  _buildCategorySection('OBLIGATIONS & BILLS', 'obligation', Colors.amberAccent),
-                  _buildCategorySection('FINANCIAL GOALS', 'goal', Colors.purpleAccent),
+                  _buildCategorySection('INCOME SOURCES', 'income_source'),
+                  _buildCategorySection('BUFFERS & ACCOUNTS', 'buffer'),
+                  _buildCategorySection('OBLIGATIONS & BILLS', 'obligation'),
+                  _buildCategorySection('FINANCIAL GOALS', 'goal'),
 
-                  const SizedBox(height: 16),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                    child: Text(
-                      'CAUSAL RELATIONSHIPS (EDGES)',
-                      style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-                    ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'ACTIVE CAUSAL EDGES:',
+                    style: TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1.0),
                   ),
-                  for (final edge in _edges) _buildEdgeCard(edge),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 8),
+
+                  if (_edges.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.black, width: 1.5),
+                      ),
+                      child: const Text('No edges found in database.', style: TextStyle(color: Colors.black54, fontSize: 11)),
+                    )
+                  else
+                    for (final edge in _edges)
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.black, width: 1.5),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${edge.source?.label ?? edge.sourceId} ──[${edge.relation.toUpperCase()}]──> ${edge.target?.label ?? edge.targetId}',
+                                style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.w700),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              color: Colors.black,
+                              child: Text(
+                                'W: ${edge.weight}',
+                                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                 ],
               ),
       ),
     );
   }
 
-  Widget _buildCategorySection(String title, String type, Color color) {
+  Widget _buildCategorySection(String title, String type) {
     final filtered = _nodes.where((n) => n.type == type).toList();
-    if (filtered.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          child: Row(
-            children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-              const SizedBox(width: 8),
-              Text(
-                '$title (${filtered.length})',
-                style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-              ),
-            ],
+        Text(
+          title,
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.0,
           ),
         ),
-        for (final n in filtered) _buildNodeCard(n, color),
-        const SizedBox(height: 10),
-      ],
-    );
-  }
-
-  Widget _buildNodeCard(GraphNode node, Color color) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: const Color(0xFF161A26),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  node.label,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white10,
-                    borderRadius: BorderRadius.circular(4),
+        const SizedBox(height: 6),
+        if (filtered.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12.0),
+            child: Text('No nodes registered.', style: TextStyle(color: Colors.black38, fontSize: 11)),
+          )
+        else
+          for (final node in filtered)
+            Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.black, width: 1.5),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        node.label.toUpperCase(),
+                        style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.w900),
+                      ),
+                      if (node.value != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '₹${node.value?.toInt()}',
+                          style: const TextStyle(color: Colors.black54, fontSize: 10, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ],
                   ),
-                  child: Text(
-                    'Conf: ${node.confidence.toUpperCase()}',
-                    style: const TextStyle(color: Colors.white54, fontSize: 9, fontWeight: FontWeight.w600),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.black, width: 1.5),
+                    ),
+                    child: Text(
+                      node.confidence.toUpperCase(),
+                      style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w900),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            if (node.value != null)
-              Text(
-                '₹${node.value!.toInt().toString()}',
-                style: TextStyle(color: color, fontWeight: FontWeight.w900, fontSize: 16),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEdgeCard(GraphEdge edge) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF161A26),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white10),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Text(
-                edge.source?.label ?? 'Node',
-                style: const TextStyle(color: Colors.white70, fontSize: 11),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Text(
-                  '── ${edge.relation} ──>',
-                  style: const TextStyle(color: Colors.amberAccent, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ),
-              Text(
-                edge.target?.label ?? 'Target',
-                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          Text(
-            'w=${edge.weight}',
-            style: const TextStyle(color: Colors.white38, fontSize: 10),
-          ),
-        ],
-      ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 }

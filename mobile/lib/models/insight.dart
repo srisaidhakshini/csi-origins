@@ -9,6 +9,9 @@ class Insight {
   final String status;
   final String explanation;
   final Map<String, dynamic>? graphPath;
+  final Map<String, dynamic>? councilDebate;
+  final List<ActionItem> actions;
+  final String? voiceAudio;
   final DateTime createdAt;
 
   Insight({
@@ -22,10 +25,18 @@ class Insight {
     required this.status,
     required this.explanation,
     this.graphPath,
+    this.councilDebate,
+    this.actions = const [],
+    this.voiceAudio,
     required this.createdAt,
   });
 
   factory Insight.fromJson(Map<String, dynamic> json) {
+    List<ActionItem> parsedActions = [];
+    if (json['actions'] != null && json['actions'] is List) {
+      parsedActions = (json['actions'] as List).map((a) => ActionItem.fromJson(a)).toList();
+    }
+
     return Insight(
       id: json['id'] ?? '',
       userId: json['userId'] ?? json['user_id'] ?? '',
@@ -39,9 +50,73 @@ class Insight {
       status: json['status'] ?? 'surfaced',
       explanation: json['explanation'] ?? '',
       graphPath: json['graphPath'] ?? json['graph_path'],
+      councilDebate: json['councilDebate'] ?? json['council_debate'],
+      actions: parsedActions,
+      voiceAudio: json['voiceAudio'] ?? json['voice_audio'],
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
           : DateTime.now(),
+    );
+  }
+}
+
+class ActionItem {
+  final String id;
+  final String title;
+  final String description;
+  final String actionType; // 'invoice_nudge' | 'sip_pause' | 'budget_shift' | 'emergency_draw'
+  String status; // 'pending' | 'executed' | 'dismissed'
+  final double? impactAmount;
+  final Map<String, dynamic>? payload;
+
+  ActionItem({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.actionType,
+    required this.status,
+    this.impactAmount,
+    this.payload,
+  });
+
+  factory ActionItem.fromJson(Map<String, dynamic> json) {
+    return ActionItem(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      actionType: json['actionType'] ?? json['action_type'] ?? 'invoice_nudge',
+      status: json['status'] ?? 'pending',
+      impactAmount: json['impactAmount'] != null ? double.tryParse(json['impactAmount'].toString()) : null,
+      payload: json['payload'],
+    );
+  }
+}
+
+class CouncilStatement {
+  final String agentName;
+  final String agentRole;
+  final String avatarIcon;
+  final String verdict;
+  final String statement;
+  final Map<String, dynamic>? evidence;
+
+  CouncilStatement({
+    required this.agentName,
+    required this.agentRole,
+    required this.avatarIcon,
+    required this.verdict,
+    required this.statement,
+    this.evidence,
+  });
+
+  factory CouncilStatement.fromJson(Map<String, dynamic> json) {
+    return CouncilStatement(
+      agentName: json['agentName'] ?? json['agent_name'] ?? 'Agent',
+      agentRole: json['agentRole'] ?? json['agent_role'] ?? 'Specialist',
+      avatarIcon: json['avatarIcon'] ?? json['avatar_icon'] ?? 'shield_rounded',
+      verdict: json['verdict'] ?? 'warning',
+      statement: json['statement'] ?? '',
+      evidence: json['evidence'],
     );
   }
 }
