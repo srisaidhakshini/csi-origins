@@ -35,7 +35,7 @@ export default function Architecture() {
   return (
     <section className="w-full bg-black py-32 px-6 overflow-hidden" id="architecture">
       <div className="max-w-7xl mx-auto">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
@@ -46,7 +46,7 @@ export default function Architecture() {
             <WavyUnderline />
           </h2>
           <p className="text-neutral-400 text-lg max-w-2xl mx-auto">
-            A specialized pipeline of agents. Each step is independently verifiable. 
+            A specialized pipeline of agents. Each step is independently verifiable.
             No human intervention required until the money moves.
           </p>
         </motion.div>
@@ -74,7 +74,7 @@ export default function Architecture() {
                       {agent.icon}
                     </div>
                   </div>
-                  
+
                   <div>
                     <h3 className="text-2xl font-display tracking-tight text-white mb-3 group-hover:text-emerald-400 transition-colors">
                       {agent.name}

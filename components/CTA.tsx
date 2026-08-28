@@ -22,13 +22,13 @@ export default function CTA() {
             ready to build?
             <WavyUnderline className="h-6 md:h-10 -bottom-3 md:-bottom-5" />
           </h2>
-          
+
           <p className="text-xl md:text-2xl text-neutral-400 max-w-2xl mx-auto">
             Stop arguing over milestones. Let the agentic pipeline verify, negotiate, and execute your payouts instantly.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8">
-            <motion.button 
+            <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="w-full sm:w-auto group relative flex items-center justify-center gap-2 bg-emerald-500 text-black px-10 py-5 rounded-full font-medium text-lg overflow-hidden"
@@ -38,8 +38,8 @@ export default function CTA() {
               </span>
               <div className="absolute inset-0 bg-emerald-400 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-in-out" />
             </motion.button>
-            
-            <motion.button 
+
+            <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/5 backdrop-blur-md px-10 py-5 rounded-full font-medium text-lg text-white border border-white/10 hover:bg-white/10 transition-colors"

@@ -58,7 +58,7 @@ export default function Hero() {
           transition={{ duration: 0.8, ease: "easeOut", delay: 0.3 }}
           className="flex items-center gap-4"
         >
-          <motion.button 
+          <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="group relative flex items-center gap-2 bg-white text-black px-8 py-4 rounded-full font-medium text-base overflow-hidden"
@@ -68,8 +68,8 @@ export default function Hero() {
             </span>
             <div className="absolute inset-0 bg-neutral-200 translate-y-[100%] group-hover:translate-y-0 transition-transform duration-300 ease-in-out" />
           </motion.button>
-          
-          <motion.button 
+
+          <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-8 py-4 rounded-full font-medium text-base text-white border border-white/20 hover:bg-white/10 transition-colors"

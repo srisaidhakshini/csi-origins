@@ -52,7 +52,7 @@ export default function Navbar() {
               EscrowGuard
             </span>
           </div>
-          
+
           <div className="flex items-center gap-4">
             {/* Always show links on desktop */}
             <div className="hidden lg:flex items-center gap-8 mr-4">
@@ -62,13 +62,13 @@ export default function Navbar() {
               <a href="#testimonials" className="text-sm text-neutral-400 hover:text-white transition-colors">testimonials</a>
               <a href="#faq" className="text-sm text-neutral-400 hover:text-white transition-colors">faq</a>
             </div>
-            
+
             <button className="text-sm bg-white text-black px-5 py-2 rounded-full font-medium hover:bg-neutral-200 transition-colors hidden md:block">
               Get Started
             </button>
-            
+
             {/* Hamburger Menu Toggle (Mobile only) */}
-            <button 
+            <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="p-2 rounded-full hover:bg-white/10 transition-colors lg:hidden"
             >
@@ -96,10 +96,10 @@ export default function Navbar() {
                 { label: "TESTIMONIALS", href: "#testimonials" },
                 { label: "FAQ", href: "#faq" }
               ].map((link, i) => (
-                <motion.a 
+                <motion.a
                   key={i}
-                  href={link.href} 
-                  onClick={() => setIsMenuOpen(false)} 
+                  href={link.href}
+                  onClick={() => setIsMenuOpen(false)}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1, duration: 0.4 }}
@@ -109,8 +109,8 @@ export default function Navbar() {
                 </motion.a>
               ))}
             </div>
-            
-            <motion.button 
+
+            <motion.button
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.5 }}

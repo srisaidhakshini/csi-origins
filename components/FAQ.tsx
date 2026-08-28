@@ -40,9 +40,9 @@ export default function FAQ() {
         <div className="space-y-4">
           {faqs.map((faq, i) => {
             const isOpen = openIndex === i;
-            
+
             return (
-              <motion.div 
+              <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -50,7 +50,7 @@ export default function FAQ() {
                 transition={{ duration: 0.5, delay: i * 0.1 }}
                 className="border border-white/10 bg-[#0a0a0a] rounded-[24px] overflow-hidden"
               >
-                <button 
+                <button
                   onClick={() => setOpenIndex(isOpen ? null : i)}
                   className="w-full flex items-center justify-between p-6 md:p-8 text-left hover:bg-white/[0.02] transition-colors"
                 >
@@ -63,7 +63,7 @@ export default function FAQ() {
                     )}
                   </div>
                 </button>
-                
+
                 <AnimatePresence>
                   {isOpen && (
                     <motion.div

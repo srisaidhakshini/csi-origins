@@ -33,13 +33,13 @@ export default function Footer() {
           </div>
         </div>
       </div>
-      
+
       <div className="w-full text-center">
         <h1 className="text-[12vw] font-display tracking-tighter text-white/5 leading-none select-none">
           escrowguard
         </h1>
       </div>
-      
+
       <div className="w-full max-w-7xl mx-auto flex justify-between items-center pt-8 border-t border-white/5 mt-8 text-xs text-neutral-600">
         <span>© 2026 Cyber Catalysts</span>
         <span>CSI-VITC Origins Hackathon</span>
