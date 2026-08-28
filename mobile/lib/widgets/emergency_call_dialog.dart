@@ -315,3 +315,4 @@ class _EmergencyCallDialogState extends State<EmergencyCallDialog>
     );
   }
 }
+

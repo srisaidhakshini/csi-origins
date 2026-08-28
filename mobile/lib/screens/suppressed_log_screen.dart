@@ -121,3 +121,4 @@ class _SuppressedLogScreenState extends State<SuppressedLogScreen> {
     );
   }
 }
+

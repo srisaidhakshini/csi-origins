@@ -130,4 +130,58 @@ export class PipelineCoordinator {
       insightCreated,
     };
   }
+
+  /**
+   * Process delayed income cascade trigger
+   */
+  public static async processDelayedIncomeTrigger(
+    userId: string,
+    sourceName: string = 'primary_retainer',
+    delayDays: number = 7
+  ): Promise<{
+    cascadeEval: any;
+    insightCreated?: any;
+  }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { obligations: true },
+    });
+
+    const balance = Number(user?.bufferBalance || 12000);
+    const obligations = user?.obligations || [];
+    const rent = obligations.find((o: any) => o.category === 'housing')?.amount || 28000;
+    const deficit = Math.max(0, Number(rent) - balance);
+
+    const explanation = `TechCorp retainer payout is delayed by ${delayDays} days. With ₹${balance.toLocaleString('en-IN')} in your buffer, a ₹${deficit.toLocaleString('en-IN')} deficit will occur before rent due date.`;
+
+    const insightCreated = await prisma.insight.create({
+      data: {
+        userId,
+        triggerType: 'shortfall',
+        severity: 85,
+        status: 'surfaced',
+        explanation,
+        actions: [
+          {
+            id: `act_delay_${Date.now()}`,
+            title: 'Pause Mutual Fund SIP Auto-Debit',
+            description: 'Preserve ₹5,000 liquid buffer until client retainer settles.',
+            actionType: 'pause_sip',
+            impactAmount: 5000,
+          },
+        ],
+      },
+    });
+
+    return {
+      cascadeEval: {
+        delayedSource: sourceName,
+        delayDays,
+        currentBuffer: balance,
+        shortfallAmount: deficit,
+        affectedObligations: ['Apartment Rent'],
+      },
+      insightCreated,
+    };
+  }
 }

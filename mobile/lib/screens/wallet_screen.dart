@@ -33,43 +33,6 @@ class _WalletScreenState extends State<WalletScreen> {
     _loadData();
   }
 
-  void _confirmLogout() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Log out of Origin Copilot?', style: TextStyle(color: Color(0xFF1C2434), fontWeight: FontWeight.bold, fontSize: 16)),
-        content: const Text(
-          'You will be disconnected and returned to the profile onboarding setup.',
-          style: TextStyle(color: Color(0xFF5A6E85), fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF8A99AD), fontWeight: FontWeight.bold)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-                (route) => false,
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Log Out'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
@@ -81,7 +44,7 @@ class _WalletScreenState extends State<WalletScreen> {
       if (mounted) {
         setState(() {
           if (userSummary != null) {
-            _bufferBalance = (userSummary['bufferBalance'] as num?)?.toDouble() ?? 0.0;
+            _bufferBalance = userSummary['bufferBalance'] != null ? (double.tryParse(userSummary['bufferBalance'].toString()) ?? 0.0) : 0.0;
             _persona = userSummary['persona'] ?? 'Freelancer';
             _obligations = userSummary['obligations'] ?? [];
           }
@@ -139,13 +102,13 @@ class _WalletScreenState extends State<WalletScreen> {
     final creditTransactions = _transactions.where((t) => t['type'] == 'credit').toList();
     final debitTransactions = _transactions.where((t) => t['type'] == 'debit').toList();
 
-    final double totalInflows = inflowObligations.fold(0.0, (sum, o) => sum + (o['amount'] as num? ?? 0).toDouble()) +
-        creditTransactions.fold(0.0, (sum, t) => sum + (t['amount'] as num? ?? 0).toDouble());
+    final double totalInflows = inflowObligations.fold(0.0, (sum, o) => sum + (o['amount'] != null ? (double.tryParse(o['amount'].toString()) ?? 0.0) : 0.0)) +
+        creditTransactions.fold(0.0, (sum, t) => sum + (t['amount'] != null ? (double.tryParse(t['amount'].toString()) ?? 0.0) : 0.0));
 
-    final double totalOutflows = outflowObligations.fold(0.0, (sum, o) => sum + (o['amount'] as num? ?? 0).toDouble()) +
-        debitTransactions.fold(0.0, (sum, t) => sum + (t['amount'] as num? ?? 0).toDouble());
+    final double totalOutflows = outflowObligations.fold(0.0, (sum, o) => sum + (o['amount'] != null ? (double.tryParse(o['amount'].toString()) ?? 0.0) : 0.0)) +
+        debitTransactions.fold(0.0, (sum, t) => sum + (t['amount'] != null ? (double.tryParse(t['amount'].toString()) ?? 0.0) : 0.0));
 
-    final double totalObligationsDue = outflowObligations.fold(0.0, (sum, o) => sum + (o['amount'] as num? ?? 0).toDouble());
+    final double totalObligationsDue = outflowObligations.fold(0.0, (sum, o) => sum + (o['amount'] != null ? (double.tryParse(o['amount'].toString()) ?? 0.0) : 0.0));
     final bool hasShortfall = _bufferBalance < totalObligationsDue && totalObligationsDue > 0;
     final double deficitAmount = totalObligationsDue - _bufferBalance;
 
@@ -158,11 +121,6 @@ class _WalletScreenState extends State<WalletScreen> {
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             onPressed: _loadData,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.white),
-            tooltip: 'Log Out',
-            onPressed: _confirmLogout,
           ),
         ],
       ),
@@ -220,7 +178,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           for (final o in inflowObligations)
                             _buildInflowCard(
                               o['label']?.toString() ?? 'Income Retainer',
-                              _currencyFormatter.format(o['amount'] ?? 0),
+                              _currencyFormatter.format(double.tryParse(o['amount']?.toString() ?? '0') ?? 0.0),
                               'Expected Monthly • Day ${o['dueDay'] ?? 1}',
                               'SCHEDULED',
                               true,
@@ -228,7 +186,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           for (final t in creditTransactions)
                             _buildInflowCard(
                               t['merchant']?.toString() ?? 'Credit Deposit',
-                              _currencyFormatter.format(t['amount'] ?? 0),
+                              _currencyFormatter.format(double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0),
                               'Bank Deposit • ${t['category'] ?? 'income'}',
                               'RECEIVED',
                               true,
@@ -248,7 +206,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           for (final o in outflowObligations)
                             _buildOutflowCard(
                               o['label']?.toString() ?? 'Monthly Obligation',
-                              _currencyFormatter.format(o['amount'] ?? 0),
+                              _currencyFormatter.format(double.tryParse(o['amount']?.toString() ?? '0') ?? 0.0),
                               'Scheduled Monthly • Due Day ${o['dueDay'] ?? 5}',
                               hasShortfall ? 'DEFICIT RISK' : 'COVERED',
                               hasShortfall,
@@ -256,7 +214,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           for (final t in debitTransactions)
                             _buildOutflowCard(
                               t['merchant']?.toString() ?? 'Debit Purchase',
-                              _currencyFormatter.format(t['amount'] ?? 0),
+                              _currencyFormatter.format(double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0),
                               'Bank Debit • ${t['category'] ?? 'spend'}',
                               'DEBITED',
                               false,
@@ -329,7 +287,7 @@ class _WalletScreenState extends State<WalletScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -392,7 +350,7 @@ class _WalletScreenState extends State<WalletScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1548DC).withValues(alpha: 0.06),
+            color: const Color(0xFF1548DC).withOpacity(0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -426,7 +384,7 @@ class _WalletScreenState extends State<WalletScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1548DC).withValues(alpha: 0.04),
+            color: const Color(0xFF1548DC).withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -490,7 +448,7 @@ class _WalletScreenState extends State<WalletScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1548DC).withValues(alpha: 0.04),
+            color: const Color(0xFF1548DC).withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -559,7 +517,7 @@ class _WalletScreenState extends State<WalletScreen> {
         border: Border.all(color: const Color(0xFFFFEBEE), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFC62828).withValues(alpha: 0.05),
+            color: const Color(0xFFC62828).withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -618,3 +576,4 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 }
+

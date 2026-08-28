@@ -195,7 +195,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF1548DC).withValues(alpha: 0.06),
+                  color: const Color(0xFF1548DC).withOpacity(0.06),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -260,7 +260,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: Colors.black.withOpacity(0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -295,7 +295,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                           color: msg.isSpeaking ? const Color(0xFFEBF1FF) : const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: msg.isSpeaking ? const Color(0xFF1548DC).withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+                            color: msg.isSpeaking ? const Color(0xFF1548DC).withOpacity(0.3) : const Color(0xFFE2E8F0),
                             width: 0.8,
                           ),
                         ),
@@ -361,3 +361,4 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 }
+

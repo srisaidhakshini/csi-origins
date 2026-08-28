@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { PipelineCoordinator } from '../pipeline/pipelineCoordinator';
 import { IngestionPipeline } from '../ingestion';
+import { OcrService } from '../services/ocrService';
 import { DEMO_USER_ID } from '../constants';
 import prisma from '../db/prisma';
 
@@ -57,13 +58,63 @@ router.post('/ingest', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/events/trigger-delay
+ * Simulates a delayed income event to trigger causal cascade evaluation
+ */
+router.post('/trigger-delay', async (req: Request, res: Response) => {
+  try {
+    const userId = req.body.userId || DEMO_USER_ID;
+    const delayDays = req.body.delayDays ? Number(req.body.delayDays) : 7;
+
+    const result = await PipelineCoordinator.processDelayedIncomeTrigger(userId, 'primary_retainer', delayDays);
+
+    res.json({
+      success: true,
+      message: `Delayed income cascade triggered (${delayDays} days delay)`,
+      cascadeEvaluation: result.cascadeEval,
+      insight: result.insightCreated,
+    });
+  } catch (error: any) {
+    console.error('Error triggering cascade delay:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/events/ocr-extract-image
+ * Uses Vision AI or OCR heuristics to extract structured entities from an uploaded bill/camera photo
+ */
+router.post('/ocr-extract-image', async (req: Request, res: Response) => {
+  try {
+    const { imageBase64, mimeType, text } = req.body;
+
+    let extracted;
+    if (imageBase64) {
+      extracted = await OcrService.parseBillImage(imageBase64, mimeType);
+    } else if (text) {
+      extracted = OcrService.parseBillText(text);
+    } else {
+      extracted = OcrService.parseBillText('BESCOM Electricity Bill • Amount: ₹3,500.00 • Due Date: 05-Sep-2026');
+    }
+
+    res.json({
+      success: true,
+      extracted,
+    });
+  } catch (error: any) {
+    console.error('Error in OCR image extraction:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * POST /api/events/ocr-scan
  * Ingests OCR scanned receipt/bill directly into transactions & obligations
  */
 router.post('/ocr-scan', async (req: Request, res: Response) => {
   try {
     const userId = req.body.userId || DEMO_USER_ID;
-    const { merchant, amount, category, dueDate, invoiceNumber, taxAmount, rawOcrText, isRecurringObligation } = req.body;
+    const { merchant, amount, category, dueDate, invoiceNumber, taxAmount, isRecurringObligation } = req.body;
 
     const parsedAmount = Number(amount) || 0;
     const parsedMerchant = merchant || 'Scanned Utility Merchant';

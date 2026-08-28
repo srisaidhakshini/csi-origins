@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class Insight {
   final String id;
   final String userId;
@@ -31,30 +33,72 @@ class Insight {
     required this.createdAt,
   });
 
-  factory Insight.fromJson(Map<String, dynamic> json) {
+  factory Insight.fromJson(dynamic jsonRaw) {
+    if (jsonRaw == null) {
+      return Insight(
+        id: '',
+        userId: '',
+        triggerType: 'cascade',
+        severity: 0.0,
+        confidence: 0.0,
+        urgency: 0.0,
+        gateScore: 0.0,
+        status: 'surfaced',
+        explanation: '',
+        createdAt: DateTime.now(),
+      );
+    }
+
+    Map<String, dynamic> json;
+    if (jsonRaw is Map<String, dynamic>) {
+      json = jsonRaw;
+    } else if (jsonRaw is Map) {
+      json = Map<String, dynamic>.from(jsonRaw);
+    } else {
+      try {
+        json = Map<String, dynamic>.from(jsonDecode(jsonRaw.toString()));
+      } catch (_) {
+        json = {};
+      }
+    }
+
     List<ActionItem> parsedActions = [];
-    if (json['actions'] != null && json['actions'] is List) {
-      parsedActions = (json['actions'] as List).map((a) => ActionItem.fromJson(a)).toList();
+    final actionsRaw = json['actions'];
+    if (actionsRaw != null) {
+      if (actionsRaw is List) {
+        for (final a in actionsRaw) {
+          if (a is Map) {
+            parsedActions.add(ActionItem.fromJson(Map<String, dynamic>.from(a)));
+          } else if (a is String) {
+            try {
+              final decoded = jsonDecode(a);
+              if (decoded is Map) {
+                parsedActions.add(ActionItem.fromJson(Map<String, dynamic>.from(decoded)));
+              }
+            } catch (_) {}
+          }
+        }
+      }
     }
 
     return Insight(
-      id: json['id'] ?? '',
-      userId: json['userId'] ?? json['user_id'] ?? '',
-      triggerType: json['triggerType'] ?? json['trigger_type'] ?? 'cascade',
+      id: json['id']?.toString() ?? '',
+      userId: json['userId']?.toString() ?? json['user_id']?.toString() ?? '',
+      triggerType: json['triggerType']?.toString() ?? json['trigger_type']?.toString() ?? 'cascade',
       severity: (json['severity'] != null) ? double.tryParse(json['severity'].toString()) ?? 0.0 : 0.0,
       confidence: (json['confidence'] != null) ? double.tryParse(json['confidence'].toString()) ?? 0.0 : 0.0,
       urgency: (json['urgency'] != null) ? double.tryParse(json['urgency'].toString()) ?? 0.0 : 0.0,
       gateScore: (json['gateScore'] != null || json['gate_score'] != null)
           ? double.tryParse((json['gateScore'] ?? json['gate_score']).toString()) ?? 0.0
           : 0.0,
-      status: json['status'] ?? 'surfaced',
-      explanation: json['explanation'] ?? '',
-      graphPath: json['graphPath'] ?? json['graph_path'],
-      councilDebate: json['councilDebate'] ?? json['council_debate'],
+      status: json['status']?.toString() ?? 'surfaced',
+      explanation: json['explanation']?.toString() ?? '',
+      graphPath: json['graphPath'] is Map ? Map<String, dynamic>.from(json['graphPath']) : null,
+      councilDebate: json['councilDebate'] is Map ? Map<String, dynamic>.from(json['councilDebate']) : null,
       actions: parsedActions,
-      voiceAudio: json['voiceAudio'] ?? json['voice_audio'],
+      voiceAudio: json['voiceAudio']?.toString() ?? json['voice_audio']?.toString(),
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt']) ?? DateTime.now()
+          ? DateTime.tryParse(json['createdAt'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
   }
@@ -81,13 +125,13 @@ class ActionItem {
 
   factory ActionItem.fromJson(Map<String, dynamic> json) {
     return ActionItem(
-      id: json['id'] ?? '',
-      title: json['title'] ?? '',
-      description: json['description'] ?? '',
-      actionType: json['actionType'] ?? json['action_type'] ?? 'invoice_nudge',
-      status: json['status'] ?? 'pending',
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      actionType: json['actionType']?.toString() ?? json['action_type']?.toString() ?? 'invoice_nudge',
+      status: json['status']?.toString() ?? 'pending',
       impactAmount: json['impactAmount'] != null ? double.tryParse(json['impactAmount'].toString()) : null,
-      payload: json['payload'],
+      payload: json['payload'] is Map ? Map<String, dynamic>.from(json['payload']) : null,
     );
   }
 }
@@ -111,12 +155,12 @@ class CouncilStatement {
 
   factory CouncilStatement.fromJson(Map<String, dynamic> json) {
     return CouncilStatement(
-      agentName: json['agentName'] ?? json['agent_name'] ?? 'Agent',
-      agentRole: json['agentRole'] ?? json['agent_role'] ?? 'Specialist',
-      avatarIcon: json['avatarIcon'] ?? json['avatar_icon'] ?? 'shield_rounded',
-      verdict: json['verdict'] ?? 'warning',
-      statement: json['statement'] ?? '',
-      evidence: json['evidence'],
+      agentName: json['agentName']?.toString() ?? '',
+      agentRole: json['agentRole']?.toString() ?? '',
+      avatarIcon: json['avatarIcon']?.toString() ?? 'smart_toy_outlined',
+      verdict: json['verdict']?.toString() ?? 'stable',
+      statement: json['statement']?.toString() ?? '',
+      evidence: json['evidence'] is Map ? Map<String, dynamic>.from(json['evidence']) : null,
     );
   }
 }
@@ -124,60 +168,60 @@ class CouncilStatement {
 class GraphNode {
   final String id;
   final String label;
-  final String type;
-  final double? value;
-  final String confidence;
+  final String type; // 'buffer' | 'income_source' | 'obligation' | 'discretionary'
+  final double value;
+  final String confidence; // 'confirmed' | 'inferred'
   final Map<String, dynamic>? metadata;
 
   GraphNode({
     required this.id,
     required this.label,
     required this.type,
-    this.value,
+    required this.value,
     required this.confidence,
     this.metadata,
   });
 
   factory GraphNode.fromJson(Map<String, dynamic> json) {
     return GraphNode(
-      id: json['id'] ?? '',
-      label: json['label'] ?? '',
-      type: json['type'] ?? 'buffer',
-      value: json['value'] != null ? double.tryParse(json['value'].toString()) : null,
-      confidence: json['confidence'] ?? 'confirmed',
-      metadata: json['metadata'],
+      id: json['id']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'buffer',
+      value: (json['value'] != null) ? double.tryParse(json['value'].toString()) ?? 0.0 : 0.0,
+      confidence: json['confidence']?.toString() ?? 'confirmed',
+      metadata: json['metadata'] is Map ? Map<String, dynamic>.from(json['metadata']) : null,
     );
   }
 }
 
 class GraphEdge {
   final String id;
-  final String sourceId;
-  final String targetId;
+  final String sourceNodeId;
+  final String targetNodeId;
   final String relation;
-  final double weight;
-  final GraphNode? source;
-  final GraphNode? target;
+  final double? weight;
+  final double? latencyDays;
 
   GraphEdge({
     required this.id,
-    required this.sourceId,
-    required this.targetId,
+    required this.sourceNodeId,
+    required this.targetNodeId,
     required this.relation,
-    required this.weight,
-    this.source,
-    this.target,
+    this.weight,
+    this.latencyDays,
   });
 
   factory GraphEdge.fromJson(Map<String, dynamic> json) {
     return GraphEdge(
-      id: json['id'] ?? '',
-      sourceId: json['sourceId'] ?? json['source_id'] ?? '',
-      targetId: json['targetId'] ?? json['target_id'] ?? '',
-      relation: json['relation'] ?? 'funds',
-      weight: json['weight'] != null ? double.tryParse(json['weight'].toString()) ?? 1.0 : 1.0,
-      source: json['source'] != null ? GraphNode.fromJson(json['source']) : null,
-      target: json['target'] != null ? GraphNode.fromJson(json['target']) : null,
+      id: json['id']?.toString() ?? '',
+      sourceNodeId: json['sourceNodeId']?.toString() ?? json['source_node_id']?.toString() ?? '',
+      targetNodeId: json['targetNodeId']?.toString() ?? json['target_node_id']?.toString() ?? '',
+      relation: json['relation']?.toString() ?? 'flows_to',
+      weight: (json['weight'] != null) ? double.tryParse(json['weight'].toString()) : null,
+      latencyDays: (json['latencyDays'] != null || json['latency_days'] != null)
+          ? double.tryParse((json['latencyDays'] ?? json['latency_days']).toString())
+          : null,
     );
   }
 }
+

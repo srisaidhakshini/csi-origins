@@ -48,7 +48,7 @@ class _VoiceSimulatorScreenState extends State<VoiceSimulatorScreen> {
         setState(() {
           _insights = insights;
           if (userSummary != null) {
-            _bufferBalance = (userSummary['bufferBalance'] as num?)?.toDouble() ?? 0.0;
+            _bufferBalance = userSummary['bufferBalance'] != null ? (double.tryParse(userSummary['bufferBalance'].toString()) ?? 0.0) : 0.0;
           }
 
           if (_insights.isNotEmpty) {
@@ -142,7 +142,7 @@ class _VoiceSimulatorScreenState extends State<VoiceSimulatorScreen> {
                 borderRadius: BorderRadius.circular(22),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF1548DC).withValues(alpha: 0.08),
+                    color: const Color(0xFF1548DC).withOpacity(0.08),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
@@ -278,7 +278,7 @@ class _VoiceSimulatorScreenState extends State<VoiceSimulatorScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF1548DC).withValues(alpha: 0.04),
+                        color: const Color(0xFF1548DC).withOpacity(0.04),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -313,3 +313,4 @@ class _VoiceSimulatorScreenState extends State<VoiceSimulatorScreen> {
     );
   }
 }
+

@@ -63,7 +63,7 @@ class _GraphStateScreenState extends State<GraphStateScreen> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF161A26),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.indigoAccent.withValues(alpha: 0.3)),
+                      border: Border.all(color: Colors.indigoAccent.withOpacity(0.3)),
                     ),
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,3 +207,4 @@ class _GraphStateScreenState extends State<GraphStateScreen> {
     );
   }
 }
+

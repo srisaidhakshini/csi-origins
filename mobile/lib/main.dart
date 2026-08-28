@@ -47,7 +47,7 @@ class FinancialAgentApp extends StatelessWidget {
         cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 2,
-          shadowColor: primaryBlue.withValues(alpha: 0.08),
+          shadowColor: primaryBlue.withOpacity(0.08),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
@@ -57,7 +57,7 @@ class FinancialAgentApp extends StatelessWidget {
             backgroundColor: primaryBlue,
             foregroundColor: Colors.white,
             elevation: 2,
-            shadowColor: primaryBlue.withValues(alpha: 0.3),
+            shadowColor: primaryBlue.withOpacity(0.3),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -131,3 +131,4 @@ class _AppInitializerState extends State<AppInitializer> {
         : const OnboardingScreen();
   }
 }
+

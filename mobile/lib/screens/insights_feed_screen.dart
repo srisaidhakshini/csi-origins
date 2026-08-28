@@ -77,7 +77,7 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.greenAccent.withValues(alpha: 0.15),
+                            color: Colors.greenAccent.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Text(
@@ -136,14 +136,14 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            Colors.indigo.shade900.withValues(alpha: 0.6),
+            Colors.indigo.shade900.withOpacity(0.6),
             const Color(0xFF1E2230),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.indigoAccent.withValues(alpha: 0.3)),
+        border: Border.all(color: Colors.indigoAccent.withOpacity(0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -202,3 +202,4 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
     );
   }
 }
+

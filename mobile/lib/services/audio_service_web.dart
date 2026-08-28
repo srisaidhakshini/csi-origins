@@ -24,3 +24,12 @@ void stopWebCopilotAlert() {
     // ignore
   }
 }
+
+void openWebUrl(String url) {
+  try {
+    js.context.callMethod('openGoogleOAuth', [url]);
+  } catch (e) {
+    // ignore
+  }
+}
+

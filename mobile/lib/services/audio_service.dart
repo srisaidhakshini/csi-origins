@@ -24,4 +24,12 @@ class AudioService {
       stopWebCopilotAlert();
     }
   }
+
+  /// Open external URL (e.g. Google OAuth consent screen)
+  static void openUrl(String url) {
+    if (kIsWeb) {
+      openWebUrl(url);
+    }
+  }
 }
+
