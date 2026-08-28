@@ -1,8 +1,6 @@
 import { CommonEvent, RawSMSPayload } from './types';
+import { CashiroParserFactory } from './cashiro/cashiroParsers';
 
-/**
- * Normalizes merchant names from SMS text strings.
- */
 export function normalizeMerchant(raw: string): string {
   if (!raw) return 'Unknown Entity';
 
@@ -34,9 +32,6 @@ export function normalizeMerchant(raw: string): string {
   return cleaned.length > 2 ? cleaned : 'Merchant';
 }
 
-/**
- * Infer spending category based on merchant and description
- */
 export function inferCategory(merchant: string, text: string): string {
   const combined = (merchant + ' ' + text).toLowerCase();
   if (combined.includes('rent') || combined.includes('skyline') || combined.includes('housing')) return 'housing';
@@ -50,48 +45,16 @@ export function inferCategory(merchant: string, text: string): string {
 }
 
 /**
- * Parses financial SMS text into a standardized CommonEvent
+ * Parses financial SMS text using ported Cashiro Kotlin Pattern Parsers
  */
 export function parseSMS(payload: RawSMSPayload, userId: string): CommonEvent | null {
   const body = payload.body || '';
+  const sender = payload.sender || '';
   if (!body) return null;
 
-  // 1. Detect transaction type (credit vs debit)
-  const isCredit = /(?:credited|received|deposited|added to|refunded|payout of)\b/i.test(body);
-  const isDebit = /(?:debited|spent|sent|paid|transferred to|withdrawn|charged)\b/i.test(body);
-
-  if (!isCredit && !isDebit) {
-    return null; // Not a financial transaction SMS
-  }
-  const type: 'credit' | 'debit' = isCredit ? 'credit' : 'debit';
-
-  // 2. Extract amount (Rs. / INR / Rs / ₹)
-  const amountRegex = /(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)/i;
-  const matchAmount = body.match(amountRegex);
-  if (!matchAmount) return null;
-
-  const rawAmountStr = matchAmount[1].replace(/,/g, '');
-  const amount = parseFloat(rawAmountStr);
-  if (isNaN(amount) || amount <= 0) return null;
-
-  // 3. Extract Merchant / Beneficiary / Payer
-  let rawMerchant = '';
-  const toMatch = body.match(/(?:to|at|info\/|towards|vpa|paid to)\s+([A-Za-z0-9\s._\-@&]+?)(?:\s+(?:on|via|ref|using|avail|bal|avbl|avl|dated|\.|\n|$))/i);
-  const fromMatch = body.match(/(?:from|by|payout by)\s+([A-Za-z0-9\s._\-@&]+?)(?:\s+(?:on|via|ref|using|avail|bal|avbl|avl|dated|\.|\n|$))/i);
-
-  if (type === 'credit' && fromMatch) {
-    rawMerchant = fromMatch[1];
-  } else if (toMatch) {
-    rawMerchant = toMatch[1];
-  } else if (fromMatch) {
-    rawMerchant = fromMatch[1];
-  } else {
-    // Fallback: search for words after common bank phrases
-    rawMerchant = payload.sender || 'Banking Transaction';
-  }
-
-  const merchant = normalizeMerchant(rawMerchant);
-  const category = inferCategory(merchant, body);
+  // Use Cashiro Bank Parser Factory
+  const parsed = CashiroParserFactory.parse(sender, body);
+  if (!parsed) return null;
 
   let timestamp = new Date();
   if (payload.timestamp) {
@@ -104,17 +67,21 @@ export function parseSMS(payload: RawSMSPayload, userId: string): CommonEvent | 
   return {
     userId,
     source: 'sms',
-    amount,
-    merchant,
-    type,
+    amount: parsed.amount,
+    merchant: parsed.merchant,
+    type: parsed.type,
     timestamp,
-    category,
+    category: parsed.category,
     confidence: 'inferred',
     rawPayload: {
-      amount,
-      merchant,
-      type,
-      category,
+      amount: parsed.amount,
+      merchant: parsed.merchant,
+      type: parsed.type,
+      category: parsed.category,
+      accountNumber: parsed.accountNumber,
+      referenceNumber: parsed.referenceNumber,
+      balance: parsed.balance,
+      bankName: parsed.bankName,
       originalSender: payload.sender,
       originalBody: payload.body,
       parsedAt: new Date().toISOString()

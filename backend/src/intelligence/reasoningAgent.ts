@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import Anthropic from '@anthropic-ai/sdk';
 
 export interface CascadeExplanationInput {
@@ -23,9 +24,18 @@ export interface AnomalyExplanationInput {
 }
 
 export class ReasoningAgent {
+  private static geminiClient: GoogleGenerativeAI | null = null;
   private static anthropicClient: Anthropic | null = null;
 
-  private static getClient(): Anthropic | null {
+  private static getGeminiClient(): GoogleGenerativeAI | null {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!this.geminiClient && apiKey) {
+      this.geminiClient = new GoogleGenerativeAI(apiKey);
+    }
+    return this.geminiClient;
+  }
+
+  private static getAnthropicClient(): Anthropic | null {
     if (!this.anthropicClient && process.env.ANTHROPIC_API_KEY) {
       this.anthropicClient = new Anthropic({
         apiKey: process.env.ANTHROPIC_API_KEY,
@@ -51,10 +61,29 @@ Here are the VERIFIED DETERMINISTIC FACTS computed from their financial causal g
 TASK:
 Write a clear, empathetic 2-sentence explanation of what is happening, why the delay causes a shortfall, and the exact action needed. Use the exact numbers provided.`;
 
-    const client = this.getClient();
-    if (client) {
+    // 1. Try Gemini API first
+    const gemini = this.getGeminiClient();
+    if (gemini) {
       try {
-        const response = await client.messages.create({
+        const model = gemini.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          systemInstruction: 'You are a concise, factual financial copilot. Never calculate numbers. Narrate only the provided facts in plain language.',
+        });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        if (text && text.trim().length > 0) {
+          return text.trim();
+        }
+      } catch (error) {
+        console.warn('⚠️ Gemini API call failed. Checking alternate provider...', error);
+      }
+    }
+
+    // 2. Try Claude API
+    const claude = this.getAnthropicClient();
+    if (claude) {
+      try {
+        const response = await claude.messages.create({
           model: 'claude-3-5-sonnet-20241022',
           max_tokens: 250,
           system: 'You are a concise, factual financial copilot. Never calculate numbers. Narrate only the provided facts in plain language.',
@@ -66,7 +95,7 @@ Write a clear, empathetic 2-sentence explanation of what is happening, why the d
           return textBlock.text.trim();
         }
       } catch (error) {
-        console.warn('⚠️ Anthropic API call failed or timed out. Using deterministic factual template narrative.', error);
+        console.warn('⚠️ Anthropic API call failed. Using deterministic factual template narrative.', error);
       }
     }
 
@@ -94,10 +123,29 @@ Here are the VERIFIED DETERMINISTIC FACTS computed from their spend baseline (do
 TASK:
 Write a concise 2-sentence explanation comparing this transaction to their typical ${input.dayName} ${input.category} baseline, explaining why it was flagged. Use the exact numbers provided.`;
 
-    const client = this.getClient();
-    if (client) {
+    // 1. Try Gemini API first
+    const gemini = this.getGeminiClient();
+    if (gemini) {
       try {
-        const response = await client.messages.create({
+        const model = gemini.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          systemInstruction: 'You are a concise, factual financial copilot. Never calculate numbers. Narrate only the provided facts in plain language.',
+        });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        if (text && text.trim().length > 0) {
+          return text.trim();
+        }
+      } catch (error) {
+        console.warn('⚠️ Gemini API call failed. Checking alternate provider...', error);
+      }
+    }
+
+    // 2. Try Claude API
+    const claude = this.getAnthropicClient();
+    if (claude) {
+      try {
+        const response = await claude.messages.create({
           model: 'claude-3-5-sonnet-20241022',
           max_tokens: 200,
           system: 'You are a concise, factual financial copilot. Never calculate numbers. Narrate only the provided facts in plain language.',
@@ -109,7 +157,7 @@ Write a concise 2-sentence explanation comparing this transaction to their typic
           return textBlock.text.trim();
         }
       } catch (error) {
-        console.warn('⚠️ Anthropic API call failed or timed out. Using deterministic factual template narrative.', error);
+        console.warn('⚠️ Anthropic API call failed. Using deterministic factual template narrative.', error);
       }
     }
 
