@@ -322,4 +322,22 @@ class ApiService {
     }
     return null;
   }
+
+  /// Trigger Gmail Transaction Ingestion Sync
+  static Future<Map<String, dynamic>?> syncGmail({String userId = demoUserId}) async {
+    final uri = Uri.parse('$baseUrl/auth/google/sync');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'userId': userId}),
+      );
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Error triggering Gmail sync: $e');
+    }
+    return null;
+  }
 }
