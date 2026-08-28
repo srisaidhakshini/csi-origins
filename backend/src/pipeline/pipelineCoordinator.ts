@@ -1,6 +1,8 @@
 import { CommonEvent } from '../ingestion/types';
 import prisma from '../db/prisma';
 import crypto from 'crypto';
+import { AgentDecision, AgentOrchestrator } from '../intelligence/agentOrchestrator';
+import { InterventionGate } from '../gate/interventionGate';
 
 export class PipelineCoordinator {
   /**
@@ -14,6 +16,7 @@ export class PipelineCoordinator {
     dedupResult: any;
     transaction?: any;
     insightCreated?: any;
+    decision?: AgentDecision;
   }> {
     const rawPayload = event.rawPayload || {};
     const dateStr = event.timestamp instanceof Date
@@ -87,35 +90,45 @@ export class PipelineCoordinator {
       create: { id: event.userId, bufferBalance: newBalance },
     });
 
-    // 5. Check if buffer has a deficit against upcoming monthly obligations
+    // 5. Forecast, prioritize, plan, and decide using the updated state.
+    const decision = await AgentOrchestrator.evaluate(event, newBalance);
     let insightCreated: any = undefined;
-    if (user?.obligations && user.obligations.length > 0) {
-      const outflowObligations = user.obligations.filter((o: any) => o.type === 'outflow');
-      const totalRequired = outflowObligations.reduce((sum: number, o: any) => sum + Number(o.amount), 0);
 
-      if (newBalance < totalRequired && outflowObligations.length > 0) {
-        const shortfall = totalRequired - newBalance;
-        const explanation = `Your current balance is ₹${newBalance.toLocaleString('en-IN')}. This creates an upcoming ₹${shortfall.toLocaleString('en-IN')} shortfall for your scheduled obligations (${outflowObligations.map((o: any) => `${o.label}: ₹${Number(o.amount).toLocaleString('en-IN')}`).join(', ')}).`;
-
-        insightCreated = await prisma.insight.create({
-          data: {
-            userId: event.userId,
-            triggerType: 'shortfall',
-            severity: Math.min(100, Math.round((shortfall / totalRequired) * 100)),
-            status: 'surfaced',
-            explanation,
-            actions: [
-              {
-                id: `act_${Date.now()}_1`,
-                title: 'Review Upcoming Expenses',
-                description: `Buffer is ₹${shortfall.toLocaleString('en-IN')} below scheduled payments.`,
-                actionType: 'budget_shift',
-                impactAmount: shortfall,
-              },
-            ],
-          },
-        });
-      }
+    if (decision.triggerType === 'cascade' || decision.triggerType === 'anomaly') {
+      insightCreated = await InterventionGate.evaluateAndLogCandidate({
+        userId: event.userId,
+        triggerType: decision.triggerType,
+        severity: decision.severity,
+        confidence: decision.confidence,
+        urgency: decision.urgency,
+        graphPath: decision.explanationFacts,
+        explanationFacts: {
+          ...decision.explanationFacts,
+          baselineMean: decision.explanationFacts.anomaly?.baselineMean,
+          zScore: decision.explanationFacts.anomaly?.zScore,
+          dayName: decision.explanationFacts.anomaly?.dayName,
+          deviationPercentage: decision.explanationFacts.anomaly?.facts?.deviationPercentage,
+        },
+        recommendationActions: decision.actionPlan.options,
+      });
+    } else if (decision.triggerType === 'opportunity') {
+      const gateScore = InterventionGate.computeScore(decision.severity, decision.confidence, decision.urgency);
+      const riskTolerance = user?.riskTolerance || 'medium';
+      const threshold = InterventionGate.getThresholdForRiskTolerance(riskTolerance);
+      insightCreated = await prisma.insight.create({
+        data: {
+          userId: event.userId,
+          triggerType: 'opportunity',
+          severity: decision.severity,
+          confidence: decision.confidence,
+          urgency: decision.urgency,
+          gateScore,
+          status: gateScore >= threshold ? 'surfaced' : 'suppressed',
+          explanation: decision.opportunities.opportunities[0].opportunity,
+          actions: decision.actionPlan.options as any,
+          graphPath: decision.explanationFacts as any,
+        },
+      });
     }
 
     console.log(`✅ [Pipeline] Processed ${event.type.toUpperCase()} ₹${event.amount} (${event.merchant}). Updated Buffer: ₹${newBalance}`);
@@ -128,6 +141,7 @@ export class PipelineCoordinator {
       },
       transaction,
       insightCreated,
+      decision,
     };
   }
 }

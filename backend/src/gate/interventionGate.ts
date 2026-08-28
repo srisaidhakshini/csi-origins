@@ -24,6 +24,7 @@ export interface CandidateInsightInput {
   urgency: number;
   graphPath: Record<string, any>;
   explanationFacts: Record<string, any>;
+  recommendationActions?: any[];
 }
 
 export class InterventionGate {
@@ -111,9 +112,18 @@ export class InterventionGate {
         userId: input.userId,
         triggerType: input.triggerType,
         severity: input.severity,
+        confidence: input.confidence,
+        urgency: input.urgency,
+        gateScore,
         status,
         explanation: councilResult.executiveSummary,
-        actions: councilResult.proposedActions as any,
+        actions: (input.recommendationActions || councilResult.proposedActions) as any,
+        graphPath: input.graphPath as any,
+        councilDebate: {
+          statements: councilResult.statements,
+          consensusSeverity: councilResult.consensusSeverity,
+          consensusStatus: councilResult.consensusStatus,
+        } as any,
       },
     });
 
