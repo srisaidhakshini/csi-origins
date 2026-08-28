@@ -80,18 +80,13 @@ flowchart TD
 
 ## App Previews
 
-<p align="center">
-   <img width="220" alt="image" src="https://github.com/user-attachments/assets/1836762e-f4c8-40b1-8e93-1916a91a7e16" />
-  <img width="220" alt="Finova Overview" src="https://github.com/user-attachments/assets/8c3b7565-01e0-405b-925c-a805ce4f0024" />
-  <img width="220" alt="Finova Chatbot" src="https://github.com/user-attachments/assets/4827c5f9-20ef-49ac-ae57-c9d3d683d0d9" />
-  <img width="220" alt="Finova Sync" src="https://github.com/user-attachments/assets/fff54d3d-b618-4b64-a717-d592f0e52e99" />
-  <img width="220" alt="image" src="https://github.com/user-attachments/assets/8af58eee-db2f-4083-b125-05184bed9570" />
-  <img width="220" alt="Finova Voice Call" src="https://github.com/user-attachments/assets/4dc7e7f8-37d5-4f9d-8622-b41d8f4077ce" />
-  <img width="220" alt="image" src="https://github.com/user-attachments/assets/1836762e-f4c8-40b1-8e93-1916a91a7e16" />
-  
+| Overview & Cashflow | AI Copilot Chat | Multi-Source Sync |
+| :---: | :---: | :---: |
+| <img width="220" alt="Finova Overview" src="https://github.com/user-attachments/assets/8c3b7565-01e0-405b-925c-a805ce4f0024" /> | <img width="220" alt="Finova Chatbot" src="https://github.com/user-attachments/assets/4827c5f9-20ef-49ac-ae57-c9d3d683d0d9" /> | <img width="220" alt="Finova Sync" src="https://github.com/user-attachments/assets/fff54d3d-b618-4b64-a717-d592f0e52e99" /> |
 
-
-</p>
+| Voice Alert & Briefing | Account & Settings | Verification & Telemetry |
+| :---: | :---: | :---: |
+| <img width="220" alt="Finova Voice Alert" src="https://github.com/user-attachments/assets/4dc7e7f8-37d5-4f9d-8622-b41d8f4077ce" /> | <img width="220" alt="Finova Settings" src="https://github.com/user-attachments/assets/8af58eee-db2f-4083-b125-05184bed9570" /> | <img width="220" alt="Finova Telemetry" src="https://github.com/user-attachments/assets/1836762e-f4c8-40b1-8e93-1916a91a7e16" /> |
 
 ---
 
