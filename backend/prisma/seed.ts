@@ -403,17 +403,92 @@ async function main() {
       status: 'surfaced',
       explanation: 'Your ₹35,000 retainer from TechCorp Labs is overdue by 3 days. With your current buffer at ₹12,000, this creates an upcoming ₹16,000 deficit for your ₹28,000 rent payment due in 2 days.',
       graphPath: {
-        nodes: [
-          { id: nodeIncomeRetainer.id, label: nodeIncomeRetainer.label, type: 'income_source', value: 35000, status: 'delayed' },
-          { id: nodeBufferChecking.id, label: nodeBufferChecking.label, type: 'buffer', value: 12000, status: 'depleting' },
-          { id: nodeRent.id, label: nodeRent.label, type: 'obligation', value: 28000, due_in_days: 2, shortfall: 16000 }
+        rootNodeId: nodeIncomeRetainer.id,
+        rootNodeLabel: nodeIncomeRetainer.label,
+        delayDays: 3,
+        bufferBalance: 12000,
+        totalShortfall: 16000,
+        steps: [
+          { from: 'TechCorp Design Retainer', to: 'HDFC Checking Balance', relation: 'funds', weight: 1.0, depth: 1 },
+          { from: 'HDFC Checking Balance', to: 'Apartment Rent', relation: 'funds', weight: 1.0, depth: 2 },
+          { from: 'HDFC Checking Balance', to: 'Parag Parikh Flexi Cap SIP', relation: 'funds', weight: 1.0, depth: 2 },
+          { from: 'HDFC Checking Balance', to: 'Broadband & Electricity Bills', relation: 'funds', weight: 1.0, depth: 2 },
         ],
-        edges: [
-          { source: nodeIncomeRetainer.label, target: nodeBufferChecking.label, relation: 'funds' },
-          { source: nodeBufferChecking.label, target: nodeRent.label, relation: 'funds' }
-        ]
-      }
-    }
+        affectedObligations: [
+          { id: nodeRent.id, label: 'Apartment Rent', amount: 28000, dueDay: 5, shortfall: 16000 },
+          { id: nodeSIP.id, label: 'Parag Parikh Flexi Cap SIP', amount: 5000, dueDay: 10, shortfall: 5000 },
+        ],
+      },
+      councilDebate: {
+        deliberatedAt: new Date().toISOString(),
+        consensusStatus: 'surfaced',
+        statements: [
+          {
+            agentName: 'Liquidity Auditor',
+            agentRole: 'Buffer Reserve & Insolvency Defense',
+            avatarIcon: 'shield_rounded',
+            verdict: 'urgent',
+            statement: 'Insolvency risk confirmed. With only ₹12,000 in checking, delaying the ₹35,000 TechCorp Retainer by 3 days causes a deterministic ₹16,000 deficit on Apartment Rent (due on day 5).',
+            evidence: { bufferBalance: 12000, totalShortfall: 16000, dueDay: 5 },
+          },
+          {
+            agentName: 'Gig Forecaster',
+            agentRole: 'Cash Flow Volatility & Inflow Timing',
+            avatarIcon: 'trending_up_rounded',
+            verdict: 'warning',
+            statement: 'Secondary Upwork payout (~₹20,000) projected around Day 18-21 based on past cadence, but arrives 13 days too late for Rent. TechCorp retainer is the single point of failure.',
+            evidence: { primaryPayer: 'TechCorp Labs', secondaryInflow: 'Upwork UX Projects (~₹20,000)' },
+          },
+          {
+            agentName: 'Behavioral Gatekeeper',
+            agentRole: 'Discretionary Budget & Anomaly Control',
+            avatarIcon: 'savings_outlined',
+            verdict: 'opportunity',
+            statement: 'Halting non-essential dining/delivery for the next 7 days will preserve approx ₹3,200 in cash liquidity to soften the deficit.',
+            evidence: { preservableLiquidity: 3200, category: 'Food & Dining' },
+          },
+        ],
+      },
+      actions: [
+        {
+          id: 'act_demo_seed_1',
+          title: 'Send Polite Client Payment Reminder',
+          description: 'Auto-drafted professional payment reminder email to TechCorp Accounts.',
+          actionType: 'invoice_nudge',
+          status: 'pending',
+          impactAmount: 35000,
+          payload: {
+            recipient: 'billing@techcorp.io',
+            subject: 'Payment Follow-up: Invoice #1078 (TechCorp Design Retainer)',
+            bodyText: 'Hi TechCorp Billing Team,\n\nI hope you are having a great week. I am checking in regarding the payout for Invoice #1078 (₹35,000) due on the 1st. Could you please confirm if this has been disbursed to my primary account?\n\nThank you,\nFreelancer',
+          },
+        },
+        {
+          id: 'act_demo_seed_2',
+          title: 'Pause Mutual Fund SIP to Avoid Bounce Fee',
+          description: 'Temporarily pause upcoming ₹5,000 Parag Parikh Flexi Cap SIP to preserve buffer for rent.',
+          actionType: 'sip_pause',
+          status: 'pending',
+          impactAmount: 5000,
+          payload: {
+            adjustmentCategory: 'investment',
+            savingsEstimate: 5000,
+          },
+        },
+        {
+          id: 'act_demo_seed_3',
+          title: 'Activate 7-Day Discretionary Freeze',
+          description: 'Reallocate ₹3,500 everyday dining allowance to checking buffer until retainer settles.',
+          actionType: 'budget_shift',
+          status: 'pending',
+          impactAmount: 3500,
+          payload: {
+            adjustmentCategory: 'food_dining',
+            savingsEstimate: 3500,
+          },
+        },
+      ],
+    },
   });
 
   await prisma.insight.create({
@@ -429,10 +504,34 @@ async function main() {
       graphPath: {
         merchant: 'Swiggy',
         amount: 850,
-        baseline_mean: 480,
-        z_score: 1.62
-      }
-    }
+        baselineMean: 480,
+        zScore: 1.62,
+        deviationPercentage: 77,
+      },
+      councilDebate: {
+        deliberatedAt: new Date().toISOString(),
+        consensusStatus: 'suppressed',
+        statements: [
+          {
+            agentName: 'Liquidity Auditor',
+            agentRole: 'Buffer Reserve & Insolvency Defense',
+            avatarIcon: 'shield_rounded',
+            verdict: 'stable',
+            statement: 'Checking balance remains above safety floor. No cascade threat.',
+            evidence: { bufferBalance: 12000 },
+          },
+          {
+            agentName: 'Behavioral Gatekeeper',
+            agentRole: 'Discretionary Budget & Anomaly Control',
+            avatarIcon: 'savings_outlined',
+            verdict: 'stable',
+            statement: 'Z-score of 1.62 is within standard weekend variance limit. Suppressed to eliminate notification fatigue.',
+            evidence: { zScore: 1.62, deviationPercentage: 77 },
+          },
+        ],
+      },
+      actions: [],
+    },
   });
 
   console.log('💡 Seeded initial demonstration insights (1 surfaced cascade, 1 suppressed anomaly).');

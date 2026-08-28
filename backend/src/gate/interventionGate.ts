@@ -1,5 +1,6 @@
 import prisma from '../db/prisma';
-import { ReasoningAgent } from '../intelligence/reasoningAgent';
+import { MultiAgentCouncil, CouncilDeliberationResult } from '../intelligence/agentCouncil';
+import { ElevenLabsService } from '../services/elevenlabsService';
 
 export interface GateScoreBreakdown {
   severity: number;    // 0 to 100
@@ -61,7 +62,7 @@ export class InterventionGate {
   }
 
   /**
-   * Evaluate candidate, compute gate score, generate LLM narrative, and log to insights table
+   * Evaluate candidate through Multi-Agent Council, compute gate score, generate actions & log to Postgres
    */
   public static async evaluateAndLogCandidate(input: CandidateInsightInput): Promise<any> {
     // 1. Fetch user risk tolerance
@@ -69,25 +70,25 @@ export class InterventionGate {
     const riskTolerance = user?.riskTolerance || 'medium';
     const threshold = this.getThresholdForRiskTolerance(riskTolerance);
 
-    // 2. Deterministic gate scoring
-    const gateScore = this.computeScore(input.severity, input.confidence, input.urgency);
-    const status: 'surfaced' | 'suppressed' = gateScore >= threshold ? 'surfaced' : 'suppressed';
-
-    // 3. Generate plain language explanation via Reasoning Agent
-    let explanation = '';
+    // 2. Multi-Agent Council Deliberation
+    let councilResult: CouncilDeliberationResult;
     if (input.triggerType === 'cascade') {
-      explanation = await ReasoningAgent.explainCascadeRisk({
-        incomeLabel: input.explanationFacts.incomeLabel || 'Income Payout',
+      councilResult = await MultiAgentCouncil.deliberateCascade({
+        userId: input.userId,
+        rootNodeLabel: input.explanationFacts.incomeLabel || 'Income Payout',
         expectedIncome: input.explanationFacts.expectedIncome || 0,
         delayDays: input.explanationFacts.delayDays || 7,
         bufferBalance: input.explanationFacts.bufferBalance || 0,
-        atRiskObligations: input.explanationFacts.atRiskObligations || [],
-        projectedShortfall: input.explanationFacts.projectedShortfall || 0,
-        criticalDueDateDescription: input.explanationFacts.criticalDueDateDescription || 'due soon',
+        atRiskObligations: input.explanationFacts.atRiskObligationsStructured || [
+          { label: 'Apartment Rent', amount: 28000, dueDay: 5, shortfall: input.explanationFacts.projectedShortfall || 16000 },
+          { label: 'Mutual Fund SIP', amount: 5000, dueDay: 10, shortfall: 5000 },
+        ],
+        totalShortfall: input.explanationFacts.projectedShortfall || 0,
         riskTolerance,
       });
     } else {
-      explanation = await ReasoningAgent.explainAnomaly({
+      councilResult = await MultiAgentCouncil.deliberateAnomaly({
+        userId: input.userId,
         merchant: input.explanationFacts.merchant || 'Merchant',
         amount: input.explanationFacts.amount || 0,
         baselineMean: input.explanationFacts.baselineMean || 0,
@@ -96,10 +97,15 @@ export class InterventionGate {
         dayName: input.explanationFacts.dayName || 'Day',
         deviationPercentage: input.explanationFacts.deviationPercentage || 0,
         riskTolerance,
+        isAnomaly: input.severity >= 50.0,
       });
     }
 
-    // 4. Log candidate insight with full score breakdown to Postgres
+    // 3. Gate scoring
+    const gateScore = this.computeScore(input.severity, input.confidence, input.urgency);
+    const status: 'surfaced' | 'suppressed' = gateScore >= threshold ? 'surfaced' : 'suppressed';
+
+    // 4. Log candidate insight with Multi-Agent council debate & executable actions to Postgres
     const savedInsight = await prisma.insight.create({
       data: {
         userId: input.userId,
@@ -109,14 +115,27 @@ export class InterventionGate {
         urgency: input.urgency,
         gateScore,
         status,
-        explanation,
+        explanation: councilResult.executiveSummary,
         graphPath: input.graphPath,
+        councilDebate: {
+          statements: councilResult.statements,
+          consensusStatus: status,
+          deliberatedAt: new Date().toISOString(),
+        } as any,
+        actions: councilResult.proposedActions as any,
       },
     });
 
     console.log(
       `🚪 [INTERVENTION GATE] Insight ${savedInsight.id.substring(0, 8)} | Trigger: ${input.triggerType.toUpperCase()} | Score: ${gateScore} (Sev: ${input.severity}, Conf: ${input.confidence}, Urg: ${input.urgency}) | Threshold: ${threshold} ➔ ${status.toUpperCase()}`
     );
+
+    // Pre-generate / cache ElevenLabs voice alert for surfaced cascade alerts asynchronously
+    if (status === 'surfaced' && input.triggerType === 'cascade') {
+      ElevenLabsService.getVoiceBriefingForInsight(savedInsight.id).catch(err => {
+        console.warn('Voice pre-generation non-blocking notice:', err.message);
+      });
+    }
 
     return savedInsight;
   }

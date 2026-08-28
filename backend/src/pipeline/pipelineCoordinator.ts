@@ -105,7 +105,10 @@ export class PipelineCoordinator {
         })),
         affectedObligations: cascadeEval.affectedObligations,
       },
-      explanationFacts: cascadeEval.explanationFacts,
+      explanationFacts: {
+        ...cascadeEval.explanationFacts,
+        atRiskObligationsStructured: cascadeEval.affectedObligations,
+      },
     });
 
     return { cascadeEval, insightCreated };

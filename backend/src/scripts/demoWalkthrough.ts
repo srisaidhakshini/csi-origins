@@ -1,5 +1,6 @@
 import { PipelineCoordinator } from '../pipeline/pipelineCoordinator';
 import { IngestionPipeline } from '../ingestion';
+import { ElevenLabsService } from '../services/elevenlabsService';
 import { DEMO_USER_ID } from '../constants';
 import prisma from '../db/prisma';
 
@@ -42,7 +43,7 @@ async function runDemoWalkthrough() {
   console.log(`   [Anomaly Engine] Category Mean: ₹${event1Result.anomalyResult?.baselineMean} | Z-Score: ${event1Result.anomalyResult?.zScore} (Normal)`);
   console.log(`   [Intervention Gate] Score: ${event1Result.insightCreated.gateScore} / 100 ➔ STATUS: ${event1Result.insightCreated.status.toUpperCase()} (Held back in Transparency Log)`);
 
-  // Step 2: Live Event 2 - Critical Delayed Income Cascade
+  // Step 2: Live Event 2 - Critical Delayed Income Cascade & Multi-Agent Council
   console.log('\n🎬 DEMO STEP 2: Triggering Delayed Gig Payout Cascade (TechCorp ₹35,000 Delayed 7 Days)');
   console.log('   Condition: Payout delayed past the 5th -> Rent is due on the 5th!');
 
@@ -56,11 +57,34 @@ async function runDemoWalkthrough() {
   console.log(`   [Deterministic Math] Buffer Balance: ₹${cascadeResult.cascadeEval.availableBuffer} vs Obligations: ₹${cascadeResult.cascadeEval.totalRequired}`);
   console.log(`   [Deterministic Math] Projected Shortfall Deficit: -₹${cascadeResult.cascadeEval.totalShortfall}`);
   console.log(`   [Intervention Gate] Score: ${cascadeResult.insightCreated.gateScore} (Sev: 70, Conf: 92, Urg: 88) ➔ STATUS: ${cascadeResult.insightCreated.status.toUpperCase()}`);
-  console.log(`   [LLM Reasoning Agent Narrative]:`);
-  console.log(`   📢 "${cascadeResult.insightCreated.explanation}"`);
 
-  // Step 3: Live Event 3 - Corroborating Signal Fingerprint & Deduplication
-  console.log('\n🎬 DEMO STEP 3: Multi-Source Deduplication (SMS Alert followed by Gmail E-Receipt)');
+  console.log(`\n   🏛️ [MULTI-AGENT COUNCIL DELIBERATION]:`);
+  const debate = (cascadeResult.insightCreated.councilDebate as any) || {};
+  const statements = debate.statements || [];
+  for (const stmt of statements) {
+    console.log(`       • [${stmt.agentName.toUpperCase()} - ${stmt.agentRole}]`);
+    console.log(`         "${stmt.statement}"`);
+  }
+
+  console.log(`\n   📢 [EXECUTIVE CONSENSUS NARRATIVE]:`);
+  console.log(`   "${cascadeResult.insightCreated.explanation}"`);
+
+  console.log(`\n   ⚡ [ACTIONABLE COUNTER-PROPOSALS GENERATED]:`);
+  const actions = (cascadeResult.insightCreated.actions as any[]) || [];
+  for (const act of actions) {
+    console.log(`       [${act.status.toUpperCase()}] ${act.title} (${act.actionType})`);
+    console.log(`         ↳ ${act.description}`);
+  }
+
+  // Step 3: ElevenLabs Voice Briefing Generation
+  console.log('\n🎬 DEMO STEP 3: ElevenLabs Neural Voice Alert Synthesis');
+  const voiceResult = await ElevenLabsService.getVoiceBriefingForInsight(cascadeResult.insightCreated.id);
+  console.log(`   🎙️ [Voice Agent] Provider: ${voiceResult.provider.toUpperCase()} | Voice ID: ${voiceResult.voiceId}`);
+  console.log(`   🎙️ [Voice Agent] Audio Payload Generated (${voiceResult.audioBase64 ? voiceResult.audioBase64.length : 'synthetic stream'} chars)`);
+  console.log(`   🎙️ [Spoken Audio Warning]: "${voiceResult.spokenText.substring(0, 100)}..."`);
+
+  // Step 4: Multi-Source Deduplication
+  console.log('\n🎬 DEMO STEP 4: Multi-Source Deduplication (SMS Alert followed by Gmail E-Receipt)');
   const testDate = new Date();
 
   // Part A: SMS Alert arrives
@@ -83,8 +107,8 @@ async function runDemoWalkthrough() {
   console.log(`   [Deduplication Engine] Is Merged: ${emailReceipt?.isMerged} | Linked To: ${emailReceipt?.matchedEventId}`);
   console.log(`   [Confidence Promotion] Confidence promoted from INFERRED ➔ ${emailReceipt?.finalConfidence.toUpperCase()}`);
 
-  // Step 4: Final Database Inspection
-  console.log('\n🎬 DEMO STEP 4: Live Feed State Ready for Flutter Mobile App');
+  // Step 5: Final Database Inspection
+  console.log('\n🎬 DEMO STEP 5: Live Feed State Ready for Flutter Mobile App');
   const surfacedInsights = await prisma.insight.findMany({
     where: { userId: DEMO_USER_ID, status: 'surfaced' },
     orderBy: { createdAt: 'desc' },
@@ -98,7 +122,7 @@ async function runDemoWalkthrough() {
   console.log(`   🛡️ Flutter Suppressed Log Count:    ${suppressedInsights.length} cards`);
 
   console.log('\n======================================================================');
-  console.log('✅ DEMO PASS COMPLETE — SYSTEM READY FOR JUDGE PRESENTATION!');
+  console.log('✅ DEMO PASS COMPLETE — MULTI-AGENT COUNCIL & ELEVENLABS ENGINE LIVE!');
   console.log('======================================================================\n');
 }
 
