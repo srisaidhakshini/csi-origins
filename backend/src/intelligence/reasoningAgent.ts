@@ -29,7 +29,7 @@ export class ReasoningAgent {
 
   private static getGeminiClient(): GoogleGenerativeAI | null {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!this.geminiClient && apiKey && !apiKey.startsWith('AQ.')) {
+    if (!this.geminiClient && apiKey) {
       this.geminiClient = new GoogleGenerativeAI(apiKey);
     }
     return this.geminiClient;
@@ -61,12 +61,12 @@ Here are the VERIFIED DETERMINISTIC FACTS computed from their financial causal g
 TASK:
 Write a clear, empathetic 2-sentence explanation of what is happening, why the delay causes a shortfall, and the exact action needed. Use the exact numbers provided.`;
 
-    // 1. Try Gemini API first if configured
+    // 1. Try Gemini 2.5 Flash first if configured
     const gemini = this.getGeminiClient();
     if (gemini) {
       try {
         const model = gemini.getGenerativeModel({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-2.5-flash',
           systemInstruction: 'You are a concise, factual financial copilot. Never calculate numbers. Narrate only the provided facts in plain language.',
         });
         const result = await model.generateContent(prompt);
@@ -123,12 +123,12 @@ Here are the VERIFIED DETERMINISTIC FACTS computed from their spend baseline (do
 TASK:
 Write a concise 2-sentence explanation comparing this transaction to their typical ${input.dayName} ${input.category} baseline, explaining why it was flagged. Use the exact numbers provided.`;
 
-    // 1. Try Gemini API first
+    // 1. Try Gemini 2.5 Flash first
     const gemini = this.getGeminiClient();
     if (gemini) {
       try {
         const model = gemini.getGenerativeModel({
-          model: 'gemini-1.5-flash',
+          model: 'gemini-2.5-flash',
           systemInstruction: 'You are a concise, factual financial copilot. Never calculate numbers. Narrate only the provided facts in plain language.',
         });
         const result = await model.generateContent(prompt);
