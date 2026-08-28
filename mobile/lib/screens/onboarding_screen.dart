@@ -111,15 +111,69 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   color: Color(0xFFF4F7FC),
                   borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
                 ),
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: (idx) => setState(() => _currentStep = idx),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Connect fragmented financial signals and configure your agent intervention threshold.',
+                style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
+              ),
+              const SizedBox(height: 24),
+
+              // Step 1: Connect Gmail
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF161A26),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _gmailConnected ? Colors.greenAccent.withValues(alpha: 0.4) : Colors.white12,
+                  ),
+                ),
+                child: Row(
                   children: [
-                    _buildStep1Persona(),
-                    _buildStep2Buffer(),
-                    _buildStep3Inflows(),
-                    _buildStep4Obligations(),
-                    _buildStep5Connectors(),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.mail_outline_rounded, color: Colors.redAccent, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Gmail Financial Signals',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _gmailConnected
+                                ? 'Connected (gmail.readonly scope)'
+                                : 'Ingest receipts, invoices & bank e-statements',
+                            style: TextStyle(
+                              color: _gmailConnected ? Colors.greenAccent : Colors.white54,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_gmailConnected)
+                      const Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 22)
+                    else
+                      ElevatedButton(
+                        onPressed: _isConnectingGmail ? null : _connectGmail,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                        child: const Text('Connect'),
+                      ),
                   ],
                 ),
               ),

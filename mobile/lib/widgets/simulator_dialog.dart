@@ -176,38 +176,26 @@ class _SimulatorDialogState extends State<SimulatorDialog> {
               ),
               const SizedBox(height: 12),
             ],
-
-            // Section 1: Cascade Disruption & Call
-            const Text(
-              '1. CASH FLOW DISRUPTION & VOICE ALERT:',
-              style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.8),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : () => _triggerDelay(5),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    ),
-                    child: const Text('DELAY RETAINER 5 DAYS'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _isLoading ? null : _triggerEmergencyVoiceCall,
-                    icon: const Icon(Icons.phone_in_talk, size: 14, color: Colors.white),
-                    label: const Text('SIMULATE VOICE CALL'),
-                    style: OutlinedButton.styleFrom(
-                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-                    ),
-                  ),
-                ),
-              ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Inject synthetic signals into the ingestion pipeline to test real-time graph updates and gate scoring.',
+            style: TextStyle(color: Colors.white60, fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          if (_statusMessage.isNotEmpty) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.indigo.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.indigoAccent.withValues(alpha: 0.5)),
+              ),
+              child: Text(
+                _statusMessage,
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+              ),
             ),
             const SizedBox(height: 14),
 
