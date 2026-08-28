@@ -15,7 +15,7 @@ class SyncScreen extends StatefulWidget {
 class _SyncScreenState extends State<SyncScreen> {
   // Google OAuth state
   bool _isConnected = true;
-  String _userEmail = 'gowreesh@gmail.com';
+  String _userEmail = '';
   bool _isSyncing = false;
   String _syncStatus = '';
 
@@ -60,7 +60,7 @@ class _SyncScreenState extends State<SyncScreen> {
     if (status != null && mounted) {
       setState(() {
         _isConnected = status['isConnected'] ?? true;
-        _userEmail = status['email'] ?? 'gowreesh@gmail.com';
+        _userEmail = status['email'] ?? '';
       });
     }
   }
@@ -106,7 +106,8 @@ class _SyncScreenState extends State<SyncScreen> {
     setState(() {
       _isSyncing = false;
       _isConnected = true;
-      _userEmail = 'gowreesh@gmail.com';
+      // Email updated by _checkGoogleStatus or ApiService.syncGmail result if we wanted,
+      // but keeping it unchanged is fine if it was already fetched.
       _syncStatus = 'Gmail Synced • ${res?['parsedTransactionsCount'] ?? 4} financial receipts processed & deduplicated';
       AudioService.speak('Gmail synced. Financial transactions parsed and committed without double-counting.');
     });

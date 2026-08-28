@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { getGoogleAuthUrl, handleOAuthCallback } from '../ingestion/gmailClient';
+import { google } from 'googleapis';
+import { getOAuth2Client, getGoogleAuthUrl, handleOAuthCallback } from '../ingestion/gmailClient';
 import { GmailWatcher } from '../ingestion/gmailWatcher';
 import { DEMO_USER_ID } from '../constants';
 import prisma from '../db/prisma';
@@ -8,147 +9,211 @@ const router = Router();
 
 /**
  * GET /api/auth/google/login
- * Directly redirects browser to Google OAuth consent screen (100% immune to popup blockers)
+ * Redirects browser to Google OAuth consent screen.
+ * State encodes: 'new_user' or existing userId
  */
 router.get('/login', (req: Request, res: Response) => {
-  const userId = (req.query.userId as string) || DEMO_USER_ID;
-  const authUrl = getGoogleAuthUrl(userId);
+  const state = (req.query.state as string) || 'new_user';
+  const oauth2Client = getOAuth2Client();
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+    ],
+    state,
+  });
+  res.redirect(authUrl);
+});
+
+/**
+ * GET /api/auth/google/connect-gmail
+ * Redirects browser to Google OAuth consent screen specifically for Gmail parsing.
+ */
+router.get('/connect-gmail', (req: Request, res: Response) => {
+  const state = (req.query.state as string) || 'demo_user';
+  const oauth2Client = getOAuth2Client();
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+    ],
+    state,
+  });
   res.redirect(authUrl);
 });
 
 /**
  * GET /api/auth/google/url
- * Returns Google OAuth2 authorization URL
+ * Returns Google OAuth2 authorization URL (for iframe/JS flow)
  */
 router.get('/url', (req: Request, res: Response) => {
-  const userId = (req.query.userId as string) || DEMO_USER_ID;
-  const authUrl = getGoogleAuthUrl(userId);
-  res.json({
-    success: true,
-    authUrl,
-    scope: 'https://www.googleapis.com/auth/gmail.readonly',
+  const state = (req.query.state as string) || 'new_user';
+  const oauth2Client = getOAuth2Client();
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+    ],
+    state,
   });
+  res.json({ success: true, authUrl });
 });
 
 /**
  * GET /api/auth/google/callback
- * Handles Google OAuth2 callback code exchange
+ * Handles Google OAuth2 callback:
+ * - Fetches Google profile (name, email, picture)
+ * - Find-or-creates user in Postgres
+ * - Saves refresh token for Gmail parsing
+ * - Redirects back to app with userId in URL
  */
 router.get('/callback', async (req: Request, res: Response) => {
   try {
     const code = req.query.code as string;
-    const userId = (req.query.state as string) || DEMO_USER_ID;
+    const stateParam = (req.query.state as string) || 'new_user';
 
     if (!code) {
-      return res.status(400).send(`
-        <html>
-          <body style="font-family: system-ui; text-align: center; padding: 50px; background: #F4F7FC;">
-            <div style="background: white; max-width: 450px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-              <h2 style="color: #e53e3e;">❌ Authorization Failed</h2>
-              <p style="color: #4a5568;">No authorization code provided by Google.</p>
-            </div>
-          </body>
-        </html>
-      `);
+      return res.redirect('http://localhost:8080?auth=error&reason=no_code');
     }
 
-    const token = await handleOAuthCallback(code, userId);
-    
-    // Automatically trigger an immediate inbox sync on successful connection
-    await GmailWatcher.syncUserInbox(userId);
+    const oauth2Client = getOAuth2Client();
+    const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
 
-    return res.send(`
-      <!DOCTYPE html>
-      <html>
+    // Fetch Google user profile
+    const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const { data: profile } = await oauth2.userinfo.get();
+
+    const googleId = profile.id || '';
+    const email = profile.email || '';
+    const name = profile.name || email.split('@')[0] || 'User';
+    const picture = profile.picture || '';
+
+    // Find or create user by googleId or email
+    let user = await prisma.user.findFirst({
+      where: { OR: [{ googleId }, { email }] },
+    });
+
+    if (user) {
+      // Update profile + refresh token
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleId,
+          email,
+          name,
+          profilePicture: picture,
+          gmailRefreshToken: tokens.refresh_token || user.gmailRefreshToken,
+        },
+      });
+    } else {
+      // Create new user
+      user = await prisma.user.create({
+        data: {
+          googleId,
+          email,
+          name,
+          profilePicture: picture,
+          gmailRefreshToken: tokens.refresh_token || null,
+          hasCompletedOnboarding: false,
+        },
+      });
+    }
+
+    // If this was a Gmail-only connect flow (not new login), sync inbox
+    if (stateParam !== 'new_user' && tokens.refresh_token) {
+      GmailWatcher.syncUserInbox(user.id).catch(console.error);
+    }
+
+    // Redirect back to app with userId
+    const isOnboarded = user.hasCompletedOnboarding;
+    
+    if (stateParam === 'new_user') {
+      return res.redirect(
+        `http://localhost:8080?auth=success&userId=${user.id}&name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}&picture=${encodeURIComponent(picture)}&onboarded=${isOnboarded}`
+      );
+    } else {
+      // Flow for Gmail Connect (popup)
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
         <head>
           <title>Google Account Connected</title>
           <style>
-            body { font-family: 'Segoe UI', system-ui, sans-serif; background: #F4F7FC; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-            .card { background: white; max-width: 440px; padding: 36px 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(21,72,220,0.08); text-align: center; }
-            .icon { width: 56px; height: 56px; background: #EBF1FF; color: #1548DC; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; margin-bottom: 16px; }
-            h2 { color: #1C2434; margin: 0 0 8px; font-size: 20px; font-weight: 700; }
-            p { color: #5A6E85; font-size: 13px; line-height: 1.5; margin: 0 0 20px; }
-            .btn { background: #1548DC; color: white; border: none; padding: 12px 24px; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; display: inline-block; }
+            body { font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background-color: #0A1628; color: white; text-align: center; }
+            .success-icon { font-size: 64px; margin-bottom: 20px; color: #4CAF50; }
+            h2 { margin: 0 0 10px 0; font-size: 24px; }
+            p { opacity: 0.8; margin-bottom: 24px; }
           </style>
         </head>
         <body>
-          <div class="card">
-            <div class="icon">✓</div>
-            <h2>Gmail Connected Successfully!</h2>
-            <p>Your Google account has been authorized. Origin Copilot will now automatically parse transaction receipts without double-counting.</p>
-            <a href="http://localhost:8080" class="btn">Return to Origin Dashboard</a>
-          </div>
+          <div class="success-icon">✓</div>
+          <h2>Gmail Connected!</h2>
+          <p>Your receipts will now be automatically parsed.<br/>You can close this window and return to Finova.</p>
           <script>
             setTimeout(() => {
-              if (window.opener) {
-                window.close();
-              }
+              if (window.opener) { window.close(); }
             }, 3000);
           </script>
         </body>
-      </html>
-    `);
+        </html>
+      `);
+    }
   } catch (error: any) {
     console.error('OAuth Callback Error:', error);
-    return res.status(500).send(`
-      <html>
-        <body style="font-family: system-ui; text-align: center; padding: 50px; background: #F4F7FC;">
-          <div style="background: white; max-width: 450px; margin: 0 auto; padding: 30px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-            <h2 style="color: #e53e3e;">❌ Connection Error</h2>
-            <p style="color: #4a5568;">${error.message || 'Token exchange failed'}</p>
-            <a href="http://localhost:8080" style="color: #1548DC; font-weight: bold;">Return to App</a>
-          </div>
-        </body>
-      </html>
-    `);
+    return res.redirect(`http://localhost:8080?auth=error&reason=${encodeURIComponent(error.message || 'unknown')}`);
   }
 });
 
 /**
- * POST /api/auth/google/sync
- * Manually or periodically triggers a Gmail transaction sync for the user
+ * GET /api/auth/me
+ * Returns current user profile by userId
  */
-router.post('/sync', async (req: Request, res: Response) => {
+router.get('/me', async (req: Request, res: Response) => {
   try {
-    const userId = req.body.userId || DEMO_USER_ID;
-    const result = await GmailWatcher.syncUserInbox(userId);
-    res.json({
+    const userId = (req.query.userId as string) || DEMO_USER_ID;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    return res.json({
       success: true,
-      message: 'Gmail inbox synchronized and financial transactions parsed',
-      ...result,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        profilePicture: user.profilePicture,
+        persona: user.persona,
+        bufferBalance: Number(user.bufferBalance),
+        riskTolerance: user.riskTolerance,
+        smsEnabled: user.smsEnabled,
+        hasCompletedOnboarding: user.hasCompletedOnboarding,
+        hasGmailConnected: Boolean(user.gmailRefreshToken),
+      },
     });
   } catch (error: any) {
-    console.error('Error syncing Gmail:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * POST /api/auth/google/webhook
- * Webhook endpoint receiving Google Cloud Pub/Sub push notifications for real-time transaction emails
- */
-router.post('/webhook', async (req: Request, res: Response) => {
-  try {
-    const userId = req.body.userId || DEMO_USER_ID;
-    console.log('🔔 [Gmail Webhook] Received incoming email notification. Syncing transactions...');
-    const result = await GmailWatcher.syncUserInbox(userId);
-    res.json({ success: true, message: 'Push notification processed', ...result });
-  } catch (error: any) {
-    console.error('Error in Gmail webhook handler:', error);
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
 /**
  * GET /api/auth/google/status
- * Returns Google account connection status and recent email transactions
+ * Returns Google account connection status
  */
 router.get('/status', async (req: Request, res: Response) => {
   try {
     const userId = (req.query.userId as string) || DEMO_USER_ID;
     const user = await prisma.user.findUnique({ where: { id: userId } });
-    
-    // Fetch recent events ingested from gmail
+
     const gmailEvents = await prisma.transaction.findMany({
       where: { userId, source: 'gmail' },
       orderBy: { createdAt: 'desc' },
@@ -158,19 +223,33 @@ router.get('/status', async (req: Request, res: Response) => {
     res.json({
       success: true,
       isConnected: Boolean(user?.gmailRefreshToken),
-      email: (user as any)?.email,
+      email: user?.email,
+      name: user?.name,
       recentTransactionsCount: gmailEvents.length,
       recentTransactions: gmailEvents,
     });
   } catch (error: any) {
-    console.error('Error checking Google status:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/auth/google/sync
+ * Manually triggers a Gmail transaction sync
+ */
+router.post('/sync', async (req: Request, res: Response) => {
+  try {
+    const userId = req.body.userId || DEMO_USER_ID;
+    const result = await GmailWatcher.syncUserInbox(userId);
+    res.json({ success: true, message: 'Gmail inbox synchronized', ...result });
+  } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 /**
  * POST /api/auth/google/disconnect
- * Clears stored Gmail OAuth tokens for the user to test fresh re-authentication
+ * Clears stored Gmail OAuth tokens
  */
 router.post('/disconnect', async (req: Request, res: Response) => {
   try {
@@ -179,12 +258,22 @@ router.post('/disconnect', async (req: Request, res: Response) => {
       where: { id: userId },
       data: { gmailRefreshToken: null },
     });
-    res.json({
-      success: true,
-      message: 'Google account disconnected successfully',
-    });
+    res.json({ success: true, message: 'Google account disconnected successfully' });
   } catch (error: any) {
-    console.error('Error disconnecting Google account:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/auth/google/webhook
+ * Webhook for Google Cloud Pub/Sub push notifications
+ */
+router.post('/webhook', async (req: Request, res: Response) => {
+  try {
+    const userId = req.body.userId || DEMO_USER_ID;
+    const result = await GmailWatcher.syncUserInbox(userId);
+    res.json({ success: true, message: 'Push notification processed', ...result });
+  } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -29,11 +29,15 @@ router.get('/:id', async (req: Request, res: Response) => {
       success: true,
       user: {
         id: user.id,
+        name: user.name,
+        email: user.email,
+        profilePicture: user.profilePicture,
         persona: user.persona,
         bufferBalance: Number(user.bufferBalance),
         riskTolerance: user.riskTolerance,
+        smsEnabled: user.smsEnabled,
         hasGmailConnected: Boolean(user.gmailRefreshToken),
-        hasCompletedOnboarding: user._count.obligations > 0 || Number(user.bufferBalance) > 0,
+        hasCompletedOnboarding: user.hasCompletedOnboarding,
         obligations: user.obligations,
       },
     });
@@ -51,13 +55,14 @@ router.post('/onboarding', async (req: Request, res: Response) => {
   try {
     const userId = req.body.userId || DEMO_USER_ID;
     const {
-      persona = 'Freelance Designer',
-      bufferBalance = 12000,
-      primaryIncome = 35000,
-      incomeLabel = 'TechCorp Design Retainer',
-      rentAmount = 28000,
-      sipAmount = 5000,
+      persona = 'Freelancer',
+      bufferBalance = 0,
+      primaryIncome = 0,
+      incomeLabel = 'Monthly Income',
+      rentAmount = 0,
+      sipAmount = 0,
       riskTolerance = 'medium',
+      smsEnabled = false,
     } = req.body;
 
     const numBuffer = Number(bufferBalance) || 0;
@@ -65,19 +70,23 @@ router.post('/onboarding', async (req: Request, res: Response) => {
     const numRent = Number(rentAmount) || 0;
     const numSip = Number(sipAmount) || 0;
 
-    // 1. Upsert User
+    // 1. Upsert User — mark onboarding complete
     const user = await prisma.user.upsert({
       where: { id: userId },
       update: {
         persona,
         bufferBalance: numBuffer,
         riskTolerance: riskTolerance.toLowerCase(),
+        smsEnabled: Boolean(smsEnabled),
+        hasCompletedOnboarding: true,
       },
       create: {
         id: userId,
         persona,
         bufferBalance: numBuffer,
         riskTolerance: riskTolerance.toLowerCase(),
+        smsEnabled: Boolean(smsEnabled),
+        hasCompletedOnboarding: true,
       },
     });
 

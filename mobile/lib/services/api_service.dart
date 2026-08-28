@@ -84,6 +84,7 @@ class ApiService {
     required double rentAmount,
     required double sipAmount,
     required String riskProfile,
+    bool smsEnabled = false,
     String userId = demoUserId,
   }) async {
     final uri = Uri.parse('$baseUrl/users/onboarding');
@@ -100,16 +101,17 @@ class ApiService {
           'rentAmount': rentAmount,
           'sipAmount': sipAmount,
           'riskTolerance': riskProfile,
+          'smsEnabled': smsEnabled,
         }),
       );
       return response.statusCode == 200;
     } catch (e) {
-      debugPrint('Error submitting onboarding: $e');
+      debugPrint('Error submitting onboarding: \$e');
       return false;
     }
   }
 
-  /// Check whether user has completed onboarding / has nodes in database
+  /// Check whether user has completed onboarding
   static Future<bool> checkOnboardingStatus({String userId = demoUserId}) async {
     final user = await fetchUserSummary(userId: userId);
     return user?['hasCompletedOnboarding'] == true;
