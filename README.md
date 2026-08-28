@@ -60,21 +60,9 @@ SMS + Gmail + Manual Input
 
 ## Sponsor Technology
 
-### Stitch
-
-**Used for:** Financial data analysis and intelligence, helping transform fragmented financial signals into actionable insights.
-
 ### ElevenLabs
 
 **Used for:** Converting important financial insights into natural voice briefings, enabling proactive audio-based financial updates.
-
-### CodeCrafters
-
-**Used for:** Supporting the systems-oriented engineering approach behind AURA's event pipeline, state management, database architecture, and financial reasoning engine.
-
-### Nexus
-
-**Used for:** Application infrastructure and deployment of backend services supporting the financial intelligence pipeline.
 
 ---
 
