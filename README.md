@@ -86,5 +86,6 @@ A delayed income event can affect rent, savings, investments, and available cash
 
 ---
 
-**Built for CSI ORIGIN 2026**
+**Built for CSI ORIGIN 2026 BY Cyber Catalysts**
+
 *Autonomous • Proactive • Explainable*
