@@ -73,7 +73,7 @@ class _InsightCardState extends State<InsightCard> {
         side: BorderSide(
           color: widget.isSuppressed
               ? Colors.white10
-              : themeColor.withValues(alpha: 0.4),
+              : themeColor.withOpacity(0.4),
           width: widget.isSuppressed ? 1 : 1.5,
         ),
       ),
@@ -91,9 +91,9 @@ class _InsightCardState extends State<InsightCard> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: themeColor.withValues(alpha: 0.15),
+                        color: themeColor.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: themeColor.withValues(alpha: 0.6)),
+                        border: Border.all(color: themeColor.withOpacity(0.6)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -332,3 +332,4 @@ class _InsightCardState extends State<InsightCard> {
     );
   }
 }
+

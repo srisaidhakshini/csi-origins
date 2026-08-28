@@ -106,7 +106,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
+                          color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(Icons.hub_rounded, color: Colors.white, size: 18),
@@ -367,7 +367,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 backgroundColor: const Color(0xFF1548DC),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 3,
-                shadowColor: const Color(0xFF1548DC).withValues(alpha: 0.35),
+                shadowColor: const Color(0xFF1548DC).withOpacity(0.35),
               ),
               child: _isSubmitting
                   ? const SizedBox(
@@ -409,7 +409,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF1548DC).withValues(alpha: 0.06),
+              color: const Color(0xFF1548DC).withOpacity(0.06),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -450,7 +450,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1548DC).withValues(alpha:0.04),
+                color: const Color(0xFF1548DC).withOpacity(0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -485,7 +485,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1548DC).withValues(alpha:0.04),
+                color: const Color(0xFF1548DC).withOpacity(0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -508,7 +508,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1548DC).withValues(alpha:0.04),
+            color: const Color(0xFF1548DC).withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -550,7 +550,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1548DC).withValues(alpha:0.04),
+                color: const Color(0xFF1548DC).withOpacity(0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -569,3 +569,4 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 }
+

@@ -28,43 +28,39 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Message is required' });
     }
 
-    // 1. Fetch live contextual state from Postgres Causal Graph
+    // 1. Fetch live contextual state from Postgres
     let user: any = null;
-    let nodes: any[] = [];
+    let obligations: any[] = [];
     let insights: any[] = [];
-    let recentEvents: any[] = [];
+    let recentTransactions: any[] = [];
 
     try {
       user = await prisma.user.findUnique({ where: { id: userId } });
-      nodes = await prisma.node.findMany({ where: { userId } });
+      obligations = await prisma.obligation.findMany({ where: { userId } });
       insights = await prisma.insight.findMany({
         where: { userId, status: 'surfaced' },
         orderBy: { createdAt: 'desc' },
         take: 3,
       });
-      recentEvents = await prisma.rawEvent.findMany({
+      recentTransactions = await prisma.transaction.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         take: 8,
       });
     } catch (_) {}
 
-    const bufferNode = nodes.find(n => n.type === 'buffer');
-    const bufferVal = bufferNode?.value ? Number(bufferNode.value) : (user?.bufferBalance ? Number(user.bufferBalance) : 12000);
-    const incomeNodes = nodes.filter(n => n.type === 'income_source');
-    const obligationNodes = nodes.filter(n => n.type === 'obligation');
+    const bufferVal = user?.bufferBalance ? Number(user.bufferBalance) : 12000;
+    const incomeStreams = obligations.filter(o => o.type === 'inflow');
+    const obligationStreams = obligations.filter(o => o.type === 'outflow');
 
     const contextSummary = {
-      primaryCheckingBuffer: `₹${bufferVal.toLocaleString()}`,
+      primaryCheckingBuffer: `₹${bufferVal.toLocaleString('en-IN')}`,
       targetSafeCushion: '₹15,000',
       riskTolerance: user?.riskTolerance || 'medium',
-      inflowSources: incomeNodes.map(n => `${n.label}: ₹${Number(n.value).toLocaleString()}`),
-      upcomingObligations: obligationNodes.map(n => `${n.label}: ₹${Number(n.value).toLocaleString()}`),
+      inflowSources: incomeStreams.map(o => `${o.label}: ₹${Number(o.amount).toLocaleString('en-IN')}`),
+      upcomingObligations: obligationStreams.map(o => `${o.label}: ₹${Number(o.amount).toLocaleString('en-IN')}`),
       activeCascadeWarnings: insights.map(i => i.explanation),
-      recentTransactions: recentEvents.map(e => {
-        const p = e.rawPayload as any;
-        return `${p?.merchant || e.source}: ₹${p?.amount || ''} (${p?.category || e.source})`;
-      }),
+      recentTransactions: recentTransactions.map(t => `${t.merchant}: ₹${t.amount} (${t.category})`),
     };
 
     // 2. Call Google Gemini 2.5 Flash

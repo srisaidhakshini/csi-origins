@@ -650,3 +650,4 @@ class _DailySpendingChartPainter extends CustomPainter {
     return oldDelegate.selectedIndex != selectedIndex || oldDelegate.nodes != nodes;
   }
 }
+

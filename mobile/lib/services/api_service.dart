@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/insight.dart';
@@ -7,12 +6,8 @@ import '../models/insight.dart';
 class ApiService {
   static const String demoUserId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
-  // Automatically adjust localhost for Android (ADB reverse / Wi-Fi) vs iOS / Desktop / Web
+  // Automatically adjust localhost for web vs native
   static String get baseUrl {
-    if (kIsWeb) return 'http://localhost:3000/api';
-    try {
-      if (Platform.isAndroid) return 'http://127.0.0.1:3000/api';
-    } catch (_) {}
     return 'http://localhost:3000/api';
   }
 
@@ -334,6 +329,33 @@ class ApiService {
     return null;
   }
 
+  /// Extract OCR entities from Image Base64 or raw text using AI Vision / Heuristics
+  static Future<Map<String, dynamic>?> extractOcrFromImage({
+    String? imageBase64,
+    String? mimeType,
+    String? text,
+  }) async {
+    final uri = Uri.parse('$baseUrl/events/ocr-extract-image');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'imageBase64': imageBase64,
+          'mimeType': mimeType,
+          'text': text,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['extracted'];
+      }
+    } catch (e) {
+      debugPrint('Error in extractOcrFromImage: $e');
+    }
+    return null;
+  }
+
   /// Ingest OCR Scanned Bill / Invoice into Causal State & Deduplication Engine
   static Future<Map<String, dynamic>?> processOcrScan({
     required String merchant,
@@ -410,4 +432,35 @@ class ApiService {
     }
     return null;
   }
+
+  /// Disconnect Google Account session
+  static Future<bool> disconnectGoogle({String userId = demoUserId}) async {
+    final uri = Uri.parse('$baseUrl/auth/google/disconnect');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'userId': userId}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error disconnecting Google: $e');
+    }
+    return false;
+  }
+
+  /// Check Google OAuth Connection Status
+  static Future<Map<String, dynamic>?> getGoogleStatus({String userId = demoUserId}) async {
+    final uri = Uri.parse('$baseUrl/auth/google/status?userId=$userId');
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      debugPrint('Error checking Google status: $e');
+    }
+    return null;
+  }
 }
+
