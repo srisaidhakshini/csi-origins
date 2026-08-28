@@ -63,6 +63,7 @@ class _InsightCardState extends State<InsightCard> {
   Widget build(BuildContext context) {
     final ins = widget.insight;
     final isCascade = ins.triggerType == 'cascade';
+    final themeColor = isCascade ? const Color(0xFFFF5252) : const Color(0xFF64B5F6);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

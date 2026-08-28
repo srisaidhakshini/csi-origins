@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../services/api_service.dart';
 import 'main_navigation_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentStep = 0;
+  bool _isSubmitting = false;
 
   // Form state
   String _selectedPersona = 'Freelance Designer';
@@ -35,17 +37,54 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.dispose();
   }
 
-  void _nextPage() {
+  void _nextPage() async {
     if (_currentStep < 4) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeInOut,
       );
     } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+      setState(() => _isSubmitting = true);
+
+      final cleanBufferStr = _bufferController.text.replaceAll(',', '').replaceAll(' ', '').trim();
+      final cleanIncomeStr = _primaryIncomeController.text.replaceAll(',', '').replaceAll(' ', '').trim();
+      final cleanRentStr = _rentController.text.replaceAll(',', '').replaceAll(' ', '').trim();
+      final cleanSipStr = _sipController.text.replaceAll(',', '').replaceAll(' ', '').trim();
+
+      final buffer = double.tryParse(cleanBufferStr) ?? 12000.0;
+      final income = double.tryParse(cleanIncomeStr) ?? 35000.0;
+      final rent = double.tryParse(cleanRentStr) ?? 28000.0;
+      final sip = double.tryParse(cleanSipStr) ?? 5000.0;
+      final label = _incomeLabelController.text.trim().isNotEmpty
+          ? _incomeLabelController.text.trim()
+          : 'Primary Retainer Income';
+
+      final success = await ApiService.submitOnboarding(
+        persona: _selectedPersona,
+        bufferBalance: buffer,
+        primaryIncome: income,
+        incomeLabel: label,
+        rentAmount: rent,
+        sipAmount: sip,
+        riskProfile: _riskProfile,
       );
+
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        if (success) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ Could not save to database. Make sure backend is running on port 3000.'),
+              backgroundColor: Color(0xFFC62828),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -67,7 +106,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(Icons.hub_rounded, color: Colors.white, size: 18),
@@ -113,7 +152,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
                 child: PageView(
                   controller: _pageController,
-                  onPageChanged: (idx) => setState(() => _currentStep = idx),
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (index) => setState(() => _currentStep = index),
                   children: [
                     _buildStep1Persona(),
                     _buildStep2Buffer(),
@@ -322,24 +362,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             width: double.infinity,
             height: 48,
             child: ElevatedButton(
-              onPressed: _nextPage,
+              onPressed: _isSubmitting ? null : _nextPage,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1548DC),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 elevation: 3,
-                shadowColor: const Color(0xFF1548DC).withOpacity(0.35),
+                shadowColor: const Color(0xFF1548DC).withValues(alpha: 0.35),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    buttonText,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.arrow_forward_rounded, size: 18),
-                ],
-              ),
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          buttonText,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 0.5),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_forward_rounded, size: 18),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -363,7 +409,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF1548DC).withOpacity(0.06),
+              color: const Color(0xFF1548DC).withValues(alpha: 0.06),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -404,7 +450,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1548DC).withOpacity(0.04),
+                color: const Color(0xFF1548DC).withValues(alpha:0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -439,7 +485,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1548DC).withOpacity(0.04),
+                color: const Color(0xFF1548DC).withValues(alpha:0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
@@ -462,7 +508,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1548DC).withOpacity(0.04),
+            color: const Color(0xFF1548DC).withValues(alpha:0.04),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -504,7 +550,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             borderRadius: BorderRadius.circular(10),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1548DC).withOpacity(0.04),
+                color: const Color(0xFF1548DC).withValues(alpha:0.04),
                 blurRadius: 8,
                 offset: const Offset(0, 3),
               ),
