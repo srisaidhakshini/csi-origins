@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/insight.dart';
 import '../services/api_service.dart';
 import '../widgets/insight_card.dart';
-import '../widgets/simulator_dialog.dart';
 
 class InsightsFeedScreen extends StatefulWidget {
   const InsightsFeedScreen({super.key});
@@ -30,19 +29,6 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
     });
   }
 
-  void _openSimulator() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => SimulatorDialog(
-        onEventTriggered: () {
-          _loadInsights();
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -59,17 +45,6 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(color: Colors.white24, height: 1),
-        ),
-      ),
-      floatingActionButton: ElevatedButton.icon(
-        onPressed: _openSimulator,
-        icon: const Icon(Icons.bolt, color: Colors.black, size: 16),
-        label: const Text('EVENT SIMULATOR'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),
       ),
       body: RefreshIndicator(

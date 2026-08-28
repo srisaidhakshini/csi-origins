@@ -18,10 +18,10 @@ class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerPr
   Map<String, dynamic>? _scanResult;
 
   // Extracted fields
-  final _merchantController = TextEditingController(text: 'BESCOM Karnataka Power');
-  final _amountController = TextEditingController(text: '2450');
-  final _dueDateController = TextEditingController(text: '08-Sep-2026');
-  final _invoiceNoController = TextEditingController(text: 'INV-BLR-88392');
+  final _merchantController = TextEditingController();
+  final _amountController = TextEditingController();
+  final _dueDateController = TextEditingController();
+  final _invoiceNoController = TextEditingController();
   String _selectedCategory = 'utilities';
   bool _isRecurringObligation = true;
 

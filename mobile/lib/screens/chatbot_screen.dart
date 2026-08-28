@@ -29,7 +29,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final _messageController = TextEditingController();
   final List<ChatMessage> _messages = [
     ChatMessage(
-      text: 'Hello! I am your Autonomous Financial Copilot. I continuously monitor your bank SMS, Gmail receipts, and variable income. Ask me anything about your cashflow, upcoming rent shortfall, or discretionary budget safety.',
+      text: 'Hello! I am your Autonomous Financial Copilot. I continuously monitor your real bank transactions, checking buffer, and scheduled obligations directly from PostgreSQL. Ask me anything about your balance, cashflow, or discretionary spend safety.',
       isUser: false,
       timestamp: DateTime.now(),
       isSpeaking: false,
@@ -144,13 +144,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildPromptChip('Can I afford dinner tonight?', 'Can I afford dinner at a fancy restaurant tonight?'),
+                  _buildPromptChip('Can I afford to spend today?', 'Can I afford discretionary spending today?'),
                   const SizedBox(width: 8),
-                  _buildPromptChip('When is rent due?', 'When is my next rent due and is there a shortfall?'),
+                  _buildPromptChip('When are bills due?', 'When are my scheduled obligations due and is my buffer safe?'),
                   const SizedBox(width: 8),
-                  _buildPromptChip('Who paid me this month?', 'Who paid me this month and what are my total received earnings?'),
+                  _buildPromptChip('Recent transactions', 'What are my recent transactions logged from SMS?'),
                   const SizedBox(width: 8),
-                  _buildPromptChip('Total balance snapshot', 'What is my total balance and upcoming bills?'),
+                  _buildPromptChip('Total balance snapshot', 'What is my current checking buffer balance?'),
                 ],
               ),
             ),
@@ -170,61 +170,64 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
           if (_isLoading)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               alignment: Alignment.centerLeft,
-              child: const Row(
+              child: Row(
                 children: [
-                  SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1548DC))),
-                  SizedBox(width: 10),
-                  Text('Copilot is reasoning over your causal graph with Gemini...', style: TextStyle(color: Color(0xFF5A6E85), fontSize: 11, fontWeight: FontWeight.w500)),
+                  const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF1548DC)),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Copilot is reasoning over your causal graph with Gemini...',
+                    style: TextStyle(color: Color(0xFF5A6E85), fontSize: 11, fontWeight: FontWeight.w500),
+                  ),
                 ],
               ),
             ),
 
-          // Input Bar
+          // Bottom Input Field
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF1548DC).withOpacity(0.06),
+                  color: const Color(0xFF1548DC).withValues(alpha: 0.06),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
               ],
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4F7FC),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
+            child: SafeArea(
+              child: Row(
+                children: [
+                  Expanded(
                     child: TextField(
                       controller: _messageController,
-                      style: const TextStyle(color: Color(0xFF1C2434), fontSize: 13),
-                      decoration: const InputDecoration(
-                        hintText: 'Ask about cashflow, rent safety, or budget...',
-                        hintStyle: TextStyle(color: Color(0xFF8A99AD), fontSize: 12),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        border: InputBorder.none,
+                      decoration: InputDecoration(
+                        hintText: 'Ask about your balance, rent, or cashflow...',
+                        hintStyle: const TextStyle(color: Color(0xFF8A99AD), fontSize: 12.5),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        filled: true,
+                        fillColor: const Color(0xFFF4F7FC),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                       onSubmitted: _sendMessage,
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: const Color(0xFF1548DC),
-                  child: IconButton(
-                    icon: const Icon(Icons.send_rounded, color: Colors.white, size: 16),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.send_rounded, color: Color(0xFF1548DC)),
                     onPressed: () => _sendMessage(_messageController.text),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -232,21 +235,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     );
   }
 
-  Widget _buildPromptChip(String label, String query) {
-    return InkWell(
-      onTap: () => _sendMessage(query),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEBF1FF),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(color: Color(0xFF1548DC), fontSize: 11, fontWeight: FontWeight.bold),
-        ),
-      ),
+  Widget _buildPromptChip(String label, String fullPrompt) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1548DC))),
+      backgroundColor: const Color(0xFFEBF1FF),
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      onPressed: () => _sendMessage(fullPrompt),
     );
   }
 
@@ -259,15 +254,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: msg.isUser ? const Color(0xFF1548DC) : Colors.white,
-          borderRadius: BorderRadius.circular(18).copyWith(
-            bottomRight: msg.isUser ? const Radius.circular(2) : const Radius.circular(18),
-            bottomLeft: !msg.isUser ? const Radius.circular(2) : const Radius.circular(18),
+          borderRadius: BorderRadius.circular(16).copyWith(
+            bottomRight: msg.isUser ? const Radius.circular(0) : const Radius.circular(16),
+            bottomLeft: !msg.isUser ? const Radius.circular(0) : const Radius.circular(16),
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF1548DC).withOpacity(0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -300,7 +295,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                           color: msg.isSpeaking ? const Color(0xFFEBF1FF) : const Color(0xFFF1F5F9),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: msg.isSpeaking ? const Color(0xFF1548DC).withOpacity(0.3) : const Color(0xFFE2E8F0),
+                            color: msg.isSpeaking ? const Color(0xFF1548DC).withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
                             width: 0.8,
                           ),
                         ),
@@ -334,8 +329,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               style: TextStyle(
                 color: msg.isUser ? Colors.white : const Color(0xFF1C2434),
                 fontSize: 13,
-                height: 1.4,
-                fontWeight: FontWeight.w500,
+                height: 1.35,
               ),
             ),
             if (msg.suggestion != null) ...[
@@ -349,11 +343,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.bolt_rounded, color: Color(0xFF1548DC), size: 14),
+                    const Icon(Icons.bolt_rounded, size: 14, color: Color(0xFF1548DC)),
                     const SizedBox(width: 4),
-                    Text(
-                      'Action: ${msg.suggestion}',
-                      style: const TextStyle(color: Color(0xFF1548DC), fontSize: 10, fontWeight: FontWeight.bold),
+                    Flexible(
+                      child: Text(
+                        'Recommended: ${msg.suggestion}',
+                        style: const TextStyle(color: Color(0xFF1548DC), fontSize: 10.5, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),

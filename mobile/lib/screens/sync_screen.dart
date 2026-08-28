@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import '../services/api_service.dart';
-import '../services/audio_service.dart';
+import '../services/sms_listener_service.dart';
 import 'ocr_scanner_screen.dart';
 
 class SyncScreen extends StatefulWidget {
@@ -12,89 +12,101 @@ class SyncScreen extends StatefulWidget {
 }
 
 class _SyncScreenState extends State<SyncScreen> {
-  bool _isSyncing = false;
-  bool _isConnecting = false;
-  String _syncStatus = '';
-  List<Map<String, dynamic>> _parsedTransactions = [
-    {
-      'sender': 'BSE Star MF',
-      'subject': 'SIP Installment Confirmation (₹5,000.00)',
-      'details': 'Parag Parikh Flexi Cap Fund • Ingested & Fingerprint Merged',
-      'tag': 'CONFIRMED',
-      'isConfirmed': true,
-    },
-    {
-      'sender': 'TechCorp Accounts',
-      'subject': 'Invoice #TC-889 Payment Schedule Notice (₹35,000.00)',
-      'details': 'Payout delayed 5 days past due cycle • Cascade Triggered',
-      'tag': 'DELAYED',
-      'isConfirmed': false,
-    },
-    {
-      'sender': 'Upwork Escrow',
-      'subject': 'Fixed-Price Milestone Release (₹25,000.00)',
-      'details': 'Deposited into HDFC Primary • Inflow Confirmed',
-      'tag': 'CONFIRMED',
-      'isConfirmed': true,
-    },
-    {
-      'sender': 'ACT Fibernet Billing',
-      'subject': 'E-Receipt for Account #883921 (₹1,199.00)',
-      'details': 'Monthly Broadband Bill Paid',
-      'tag': 'CONFIRMED',
-      'isConfirmed': true,
-    },
-  ];
+  bool _isSmsListening = true;
+  bool _isScanningInbox = false;
+  String _inboxScanStatus = '';
+  List<dynamic> _transactions = [];
+  bool _isLoading = true;
 
-  void _connectGoogleOAuth() async {
-    setState(() {
-      _isConnecting = true;
-      _syncStatus = 'Generating Google OAuth2 consent URL...';
-    });
+  final _currencyFormatter = NumberFormat.currency(
+    locale: 'en_IN',
+    symbol: '₹',
+    decimalDigits: 0,
+  );
 
-    final authUrl = await ApiService.getGoogleAuthUrl();
+  @override
+  void initState() {
+    super.initState();
+    _loadTransactions();
 
-    setState(() => _isConnecting = false);
+    SmsListenerService.startListening(
+      onEventIngested: (res) {
+        if (mounted) {
+          _loadTransactions();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('📱 Live SMS Transaction Ingested & Saved to PostgreSQL'),
+              backgroundColor: Color(0xFF1548DC),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      },
+    );
+    _isSmsListening = SmsListenerService.isListening;
+  }
 
-    if (authUrl != null) {
+  Future<void> _loadTransactions() async {
+    setState(() => _isLoading = true);
+    final txList = await ApiService.fetchTransactions();
+    if (mounted) {
       setState(() {
-        _syncStatus = 'Google OAuth consent requested with scope: gmail.readonly';
+        _transactions = txList;
+        _isLoading = false;
       });
-      // Trigger background sync
-      _syncGmail();
-    } else {
-      setState(() => _syncStatus = 'Unable to reach backend OAuth service.');
     }
   }
 
-  void _syncGmail() async {
+  void _toggleSmsListening() {
     setState(() {
-      _isSyncing = true;
-      _syncStatus = 'Polling Gmail messages with query [newer_than:7d (debit OR credit OR receipt)]...';
-    });
-
-    final res = await ApiService.syncGmail();
-
-    setState(() {
-      _isSyncing = false;
-      if (res != null && res['transactions'] != null) {
-        final List txs = res['transactions'];
-        if (txs.isNotEmpty) {
-          _parsedTransactions = txs.map<Map<String, dynamic>>((t) => {
-            'sender': t['sender'] ?? 'Bank Notification',
-            'subject': t['subject'] ?? 'Transaction Notice',
-            'details': '₹${t['amount']} ${t['merchant']} (${t['type']?.toString().toUpperCase()}) • Merged & Graph Updated',
-            'tag': 'CONFIRMED',
-            'isConfirmed': true,
-          }).toList();
-        }
-        _syncStatus = 'Gmail Synced • ${res['parsedTransactionsCount'] ?? 4} financial receipts processed & deduplicated';
-        AudioService.speak('Gmail synced. Financial transactions parsed and committed to causal graph without double-counting.');
+      if (_isSmsListening) {
+        SmsListenerService.stopListening();
+        _isSmsListening = false;
       } else {
-        _syncStatus = 'Gmail Synced • 4 financial receipts processed & deduplicated';
-        AudioService.speak('Gmail synced. 4 financial receipts processed and merged with bank alerts.');
+        SmsListenerService.startListening(
+          onEventIngested: (res) {
+            if (mounted) {
+              _loadTransactions();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('📱 Live SMS Transaction Ingested & Saved to PostgreSQL'),
+                  backgroundColor: Color(0xFF1548DC),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          },
+        );
+        _isSmsListening = SmsListenerService.isListening;
       }
     });
+  }
+
+  void _scanPastInboxSms() async {
+    setState(() {
+      _isScanningInbox = true;
+      _inboxScanStatus = 'Scanning device SMS inbox for bank transactions...';
+    });
+
+    final res = await SmsListenerService.syncHistoricalInboxSms(limit: 250);
+    final scanned = res['scanned'] ?? 0;
+    final ingested = res['ingested'] ?? 0;
+
+    await _loadTransactions();
+
+    setState(() {
+      _isScanningInbox = false;
+      _inboxScanStatus = 'Inbox Scanned ($scanned messages) • $ingested transactions ingested into database';
+    });
+
+    if (mounted && ingested > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('📥 Ingested $ingested past transactions from SMS inbox'),
+          backgroundColor: const Color(0xFF1548DC),
+        ),
+      );
+    }
   }
 
   @override
@@ -104,39 +116,79 @@ class _SyncScreenState extends State<SyncScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF0D32B2),
         title: const Text('Data Ingestion & Sync'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Gmail Integration Card
-          _buildGmailSyncCard(),
-          const SizedBox(height: 16),
-
-          // OCR Bill Scanner Direct Access Card
-          _buildOcrAccessCard(context),
-          const SizedBox(height: 20),
-
-          // Parsed Financial Emails Stream
-          const Text(
-            'PARSED FINANCIAL EMAILS (GMAIL STREAM)',
-            style: TextStyle(color: Color(0xFF5A6E85), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+            onPressed: _loadTransactions,
           ),
-          const SizedBox(height: 8),
-
-          for (final item in _parsedTransactions)
-            _buildEmailItem(
-              item['sender'] ?? '',
-              item['subject'] ?? '',
-              item['details'] ?? '',
-              item['tag'] ?? 'CONFIRMED',
-              item['isConfirmed'] ?? true,
-            ),
         ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: _loadTransactions,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Live SMS Interceptor Card
+            _buildSmsSyncCard(),
+            const SizedBox(height: 16),
+
+            // OCR Bill Scanner Direct Access Card
+            _buildOcrAccessCard(context),
+            const SizedBox(height: 20),
+
+            // Real-Time Ingested Transactions Stream
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'INGESTED TRANSACTIONS (POSTGRES STREAM)',
+                  style: TextStyle(color: Color(0xFF5A6E85), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                ),
+                Text(
+                  '${_transactions.length} Total',
+                  style: const TextStyle(color: Color(0xFF1548DC), fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            if (_isLoading)
+              const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: Color(0xFF1548DC))))
+            else if (_transactions.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(Icons.inbox_outlined, color: Color(0xFF8A99AD), size: 32),
+                    SizedBox(height: 8),
+                    Text(
+                      'No transactions logged in database yet.',
+                      style: TextStyle(color: Color(0xFF1C2434), fontWeight: FontWeight.bold, fontSize: 12.5),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Tap "Scan & Ingest Past SMS Inbox" above to import your historical messages, or receive a live bank SMS.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFF8A99AD), fontSize: 10.5),
+                    ),
+                  ],
+                ),
+              )
+            else
+              for (final tx in _transactions)
+                _buildTransactionItem(tx),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildGmailSyncCard() {
+  Widget _buildSmsSyncCard() {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -144,7 +196,7 @@ class _SyncScreenState extends State<SyncScreen> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1548DC).withOpacity(0.06),
+            color: const Color(0xFF1548DC).withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -158,10 +210,10 @@ class _SyncScreenState extends State<SyncScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.mail_rounded, color: Color(0xFF1548DC), size: 20),
+                  Icon(Icons.sms_outlined, color: Color(0xFF1548DC), size: 20),
                   SizedBox(width: 10),
                   Text(
-                    'Google / Gmail OAuth Sync',
+                    'Native SMS Telephony Stream',
                     style: TextStyle(color: Color(0xFF1C2434), fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -169,59 +221,55 @@ class _SyncScreenState extends State<SyncScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEBF1FF),
+                  color: _isSmsListening ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
-                  'CONNECTED',
-                  style: TextStyle(color: Color(0xFF1548DC), fontSize: 9.5, fontWeight: FontWeight.bold),
+                child: Text(
+                  _isSmsListening ? 'ACTIVE' : 'PAUSED',
+                  style: TextStyle(
+                    color: _isSmsListening ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
           const Text(
-            'Connected: gowreesh@gmail.com\nContinuous background watcher actively polls every 30s with scope [https://www.googleapis.com/auth/gmail.readonly] to automatically ingest e-receipts and client invoices without double-counting.',
+            'Intercepts and parses live bank SMS messages in background using the Cashiro Kotlin parser engine. Filters OTPs and routes debits/credits straight into PostgreSQL.',
             style: TextStyle(color: Color(0xFF5A6E85), fontSize: 11.5, height: 1.35),
           ),
           const SizedBox(height: 14),
-          if (_syncStatus.isNotEmpty) ...[
+          if (_inboxScanStatus.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: const Color(0xFFEBF1FF),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.sync_rounded, color: Color(0xFF1548DC), size: 14),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(_syncStatus, style: const TextStyle(color: Color(0xFF1548DC), fontSize: 10.5, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
+              child: Text(_inboxScanStatus, style: const TextStyle(color: Color(0xFF1548DC), fontSize: 10.5, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 10),
           ],
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: _isSyncing ? null : _syncGmail,
-                  icon: const Icon(Icons.refresh_rounded, size: 16),
-                  label: Text(_isSyncing ? 'Syncing...' : 'Sync Inbox Now'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _isConnecting ? null : _connectGoogleOAuth,
-                  icon: const Icon(Icons.lock_open_rounded, size: 16),
-                  label: Text(_isConnecting ? 'Connecting...' : 'Re-Auth OAuth'),
-                ),
-              ),
-            ],
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: ElevatedButton.icon(
+              onPressed: _isScanningInbox ? null : _scanPastInboxSms,
+              icon: const Icon(Icons.history_rounded, size: 16),
+              label: Text(_isScanningInbox ? 'Scanning Past Inbox...' : 'Scan & Ingest Past SMS Inbox'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 40,
+            child: OutlinedButton.icon(
+              onPressed: _toggleSmsListening,
+              icon: Icon(_isSmsListening ? Icons.pause_circle_outline : Icons.play_circle_outline, size: 16),
+              label: Text(_isSmsListening ? 'Pause Real-Time Listener' : 'Resume Real-Time Listener'),
+            ),
           ),
         ],
       ),
@@ -234,10 +282,9 @@ class _SyncScreenState extends State<SyncScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFF1548DC).withOpacity(0.3), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1548DC).withOpacity(0.06),
+            color: const Color(0xFF1548DC).withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -255,43 +302,47 @@ class _SyncScreenState extends State<SyncScreen> {
             child: const Icon(Icons.document_scanner_rounded, color: Color(0xFF1548DC), size: 22),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'OCR Bill & Receipt Scanner',
-                  style: TextStyle(color: Color(0xFF1C2434), fontSize: 13, fontWeight: FontWeight.bold),
+                const Text(
+                  'Physical Invoice & Bill OCR',
+                  style: TextStyle(color: Color(0xFF1C2434), fontSize: 13.5, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 2),
-                Text(
-                  'Scan paper utility bills, rent receipts, and dining invoices into Postgres.',
-                  style: TextStyle(color: Color(0xFF5A6E85), fontSize: 10),
+                const SizedBox(height: 2),
+                const Text(
+                  'Scan paper receipts & utility bills into database.',
+                  style: TextStyle(color: Color(0xFF5A6E85), fontSize: 10.5),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
           ElevatedButton(
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const OcrScannerScreen()),
-              );
+              ).then((_) => _loadTransactions());
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1548DC),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: const Text('SCAN', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            child: const Text('Scan Bill', style: TextStyle(fontSize: 11)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmailItem(String sender, String subject, String details, String tag, bool isConfirmed) {
+  Widget _buildTransactionItem(dynamic tx) {
+    final isCredit = tx['type'] == 'credit';
+    final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+    final merchant = tx['merchant']?.toString() ?? 'Merchant';
+    final category = tx['category']?.toString() ?? 'general';
+    final bank = tx['bankName']?.toString() ?? 'Bank Alert';
+    final date = tx['timestamp'] != null ? DateTime.tryParse(tx['timestamp'].toString()) : null;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
@@ -300,44 +351,77 @@ class _SyncScreenState extends State<SyncScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1548DC).withOpacity(0.04),
+            color: const Color(0xFF1548DC).withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: isCredit ? const Color(0xFFE8F5E9) : const Color(0xFFEBF1FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+              color: isCredit ? const Color(0xFF2E7D32) : const Color(0xFF1548DC),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Text(sender, style: const TextStyle(color: Color(0xFF1C2434), fontSize: 12, fontWeight: FontWeight.bold)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(subject, style: const TextStyle(color: Color(0xFF5A6E85), fontSize: 11), overflow: TextOverflow.ellipsis),
-                    ),
-                  ],
+                Text(
+                  merchant,
+                  style: const TextStyle(color: Color(0xFF1C2434), fontSize: 13, fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 3),
-                Text(details, style: const TextStyle(color: Color(0xFF8A99AD), fontSize: 9.5)),
+                const SizedBox(height: 2),
+                Text(
+                  '$bank • $category ${date != null ? '• ${DateFormat('d MMM, h:mm a').format(date)}' : ''}',
+                  style: const TextStyle(color: Color(0xFF5A6E85), fontSize: 10),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: isConfirmed ? const Color(0xFFEBF1FF) : const Color(0xFFF1F3F7),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              tag,
-              style: TextStyle(color: isConfirmed ? const Color(0xFF1548DC) : const Color(0xFF8A99AD), fontSize: 8.5, fontWeight: FontWeight.bold),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${isCredit ? '+' : '-'}${_currencyFormatter.format(amount)}',
+                style: TextStyle(
+                  color: isCredit ? const Color(0xFF00A86B) : const Color(0xFF1C2434),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isCredit ? const Color(0xFFE8F5E9) : const Color(0xFFF1F3F7),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  tx['type']?.toString().toUpperCase() ?? 'SMS',
+                  style: TextStyle(
+                    color: isCredit ? const Color(0xFF2E7D32) : const Color(0xFF5A6E85),
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

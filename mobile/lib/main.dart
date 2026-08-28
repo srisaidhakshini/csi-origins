@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'screens/main_navigation_screen.dart';
 import 'screens/onboarding_screen.dart';
+import 'services/api_service.dart';
 
 void main() {
   runApp(const FinancialAgentApp());
@@ -26,7 +28,6 @@ class FinancialAgentApp extends StatelessWidget {
           primary: primaryBlue,
           secondary: darkBlue,
           surface: Colors.white,
-          background: bgLight,
           onPrimary: Colors.white,
           onSurface: Color(0xFF1C2434),
         ),
@@ -46,7 +47,7 @@ class FinancialAgentApp extends StatelessWidget {
         cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 2,
-          shadowColor: primaryBlue.withOpacity(0.08),
+          shadowColor: primaryBlue.withValues(alpha: 0.08),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
@@ -56,7 +57,7 @@ class FinancialAgentApp extends StatelessWidget {
             backgroundColor: primaryBlue,
             foregroundColor: Colors.white,
             elevation: 2,
-            shadowColor: primaryBlue.withOpacity(0.3),
+            shadowColor: primaryBlue.withValues(alpha: 0.3),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -82,7 +83,51 @@ class FinancialAgentApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const OnboardingScreen(),
+      home: const AppInitializer(),
     );
+  }
+}
+
+class AppInitializer extends StatefulWidget {
+  const AppInitializer({super.key});
+
+  @override
+  State<AppInitializer> createState() => _AppInitializerState();
+}
+
+class _AppInitializerState extends State<AppInitializer> {
+  bool _checked = false;
+  bool _hasCompletedOnboarding = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkStatus();
+  }
+
+  Future<void> _checkStatus() async {
+    final status = await ApiService.checkOnboardingStatus();
+    if (mounted) {
+      setState(() {
+        _hasCompletedOnboarding = status;
+        _checked = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_checked) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF0D32B2),
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    return _hasCompletedOnboarding
+        ? const MainNavigationScreen()
+        : const OnboardingScreen();
   }
 }

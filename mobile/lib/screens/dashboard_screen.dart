@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/insight.dart';
 import '../services/api_service.dart';
 import '../widgets/insight_card.dart';
-import '../widgets/simulator_dialog.dart';
-import '../widgets/emergency_call_dialog.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -14,7 +12,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   List<Insight> _surfacedInsights = [];
-  List<GraphNode> _nodes = [];
   bool _isLoading = true;
   String _riskTolerance = 'medium';
 
@@ -27,23 +24,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadDashboardData() async {
     setState(() => _isLoading = true);
     final insights = await ApiService.asyncFetchSurfacedInsights();
-    final nodes = await ApiService.fetchGraphNodes();
     setState(() {
       _surfacedInsights = insights;
-      _nodes = nodes;
       _isLoading = false;
     });
-  }
-
-  void _openSimulator() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => SimulatorDialog(
-        onEventTriggered: _loadDashboardData,
-      ),
-    );
   }
 
   void _updateRisk(String newRisk) async {
@@ -74,17 +58,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(color: Colors.white24, height: 1),
-        ),
-      ),
-      floatingActionButton: ElevatedButton.icon(
-        onPressed: _openSimulator,
-        icon: const Icon(Icons.bolt, color: Colors.black, size: 16),
-        label: const Text('EVENT SIMULATOR'),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: Colors.black,
-          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),
       ),
       body: RefreshIndicator(
