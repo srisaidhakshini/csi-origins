@@ -187,7 +187,7 @@ class _EmergencyCallDialogState extends State<EmergencyCallDialog>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'ORIGIN COPILOT // NARRATIVE BRIEFING:',
+                          'FINOVA COPILOT // NARRATIVE BRIEFING:',
                           style: TextStyle(
                             color: Colors.white54,
                             fontSize: 9,

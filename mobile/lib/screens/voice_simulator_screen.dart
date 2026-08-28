@@ -52,10 +52,10 @@ class _VoiceSimulatorScreenState extends State<VoiceSimulatorScreen> {
           }
 
           if (_insights.isNotEmpty) {
-            _callNarrative = 'Origin Copilot Voice Alert: ${_insights.first.explanation}';
+            _callNarrative = 'Finova Copilot Voice Alert: ${_insights.first.explanation}';
             _statusMessage = 'Active insight detected • Ready to play voice alert';
           } else {
-            _callNarrative = 'Origin Copilot Report: Your checking buffer is ${_currencyFormatter.format(_bufferBalance)}. All scheduled obligations are currently covered.';
+            _callNarrative = 'Finova Copilot Report: Your checking buffer is ${_currencyFormatter.format(_bufferBalance)}. All scheduled obligations are currently covered.';
             _statusMessage = 'Database clean • Buffer healthy';
           }
 
