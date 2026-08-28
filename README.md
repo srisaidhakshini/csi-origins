@@ -1,4 +1,4 @@
-<img width="716" height="1452" alt="image" src="https://github.com/user-attachments/assets/fd81c4fb-d3d9-418d-977e-ccd42e67aad6" /># Finova
+# Finova
 
 Autonomous Financial Intelligence Platform for Variable-Income Earners
 
