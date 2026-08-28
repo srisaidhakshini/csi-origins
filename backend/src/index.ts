@@ -53,11 +53,15 @@ app.get('/health', async (_req, res) => {
   }
 });
 
+import { GmailWatcher } from './ingestion/gmailWatcher';
+
 let server: any = null;
 
 if (require.main === module) {
   server = app.listen(PORT, () => {
     console.log(`🚀 Financial Agent API running on http://localhost:${PORT}`);
+    // Start automated transaction email watcher (every 30 seconds)
+    GmailWatcher.startWatcher(30000);
   });
 }
 
