@@ -19,7 +19,10 @@ export function getGoogleAuthUrl(state?: string): string {
   return oauth2Client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent',
-    scope: ['https://www.googleapis.com/auth/gmail.readonly'],
+    scope: [
+      'https://www.googleapis.com/auth/userinfo.email',
+      'https://www.googleapis.com/auth/userinfo.profile',
+    ],
     state: state || 'demo_user'
   });
 }
@@ -68,7 +71,7 @@ export async function pollGmailForUser(userId: string, maxResults = 10): Promise
     const res = await gmail.users.messages.list({
       userId: 'me',
       maxResults,
-      q: 'newer_than:7d (subject:debit OR subject:credit OR subject:statement OR subject:payout OR subject:receipt OR subject:invoice)'
+      q: 'newer_than:7d (bank OR transaction OR alert OR subject:debit OR subject:credit OR subject:statement OR subject:payout OR subject:receipt OR subject:invoice)'
     });
 
     const messages = res.data.messages || [];

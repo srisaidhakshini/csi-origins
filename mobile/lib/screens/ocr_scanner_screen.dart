@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:camera/camera.dart';
+import 'dart:convert';
+import '../main.dart';
 import '../services/api_service.dart';
 import '../services/audio_service.dart';
 
@@ -10,7 +13,7 @@ class OcrScannerScreen extends StatefulWidget {
   State<OcrScannerScreen> createState() => _OcrScannerScreenState();
 }
 
-class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerProviderStateMixin {
+class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _scanLaserController;
   bool _isScanning = false;
   bool _isProcessing = false;
@@ -26,23 +29,67 @@ class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerPr
   String _selectedCategory = 'utilities';
   bool _isRecurringObligation = true;
 
+  // Camera integration
+  CameraController? _cameraController;
+  List<CameraDescription> _cameras = [];
+  bool _isCameraInitialized = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scanLaserController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
+    
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
+    try {
+      _cameras = await availableCameras();
+      if (_cameras.isNotEmpty) {
+        _cameraController = CameraController(
+          _cameras.first,
+          ResolutionPreset.medium,
+          enableAudio: false,
+        );
+        await _cameraController!.initialize();
+        if (mounted) {
+          setState(() {
+            _isCameraInitialized = true;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error initializing camera: $e');
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scanLaserController.dispose();
     _merchantController.dispose();
     _amountController.dispose();
     _dueDateController.dispose();
     _invoiceNoController.dispose();
+    _cameraController?.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final CameraController? cameraController = _cameraController;
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return;
+    }
+    if (state == AppLifecycleState.inactive) {
+      cameraController.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      _initializeCamera();
+    }
   }
 
   void _loadPreset(String name, String amount, String due, String inv, String cat, bool isObligation) {
@@ -59,31 +106,45 @@ class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerPr
   }
 
   void _performOcrScan() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
     setState(() {
       _isScanning = true;
-      _statusMessage = 'Scanning image with Neural Vision OCR & Line Item Parser...';
+      _statusMessage = 'Uploading and scanning image with Neural Vision OCR...';
     });
 
-    final extracted = await ApiService.extractOcrFromImage(
-      text: '${_merchantController.text} Bill • Amount: ₹${_amountController.text} • Due: ${_dueDateController.text}',
-    );
+    try {
+      final XFile image = await _cameraController!.takePicture();
+      final bytes = await image.readAsBytes();
+      final base64Image = base64Encode(bytes);
 
-    setState(() {
-      _isScanning = false;
-      if (extracted != null) {
-        _merchantController.text = extracted['merchant'] ?? _merchantController.text;
-        _amountController.text = (extracted['amount'] ?? _amountController.text).toString();
-        _dueDateController.text = extracted['dueDate'] ?? _dueDateController.text;
-        _invoiceNoController.text = extracted['invoiceNumber'] ?? _invoiceNoController.text;
-        _selectedCategory = extracted['category'] ?? _selectedCategory;
-        _isRecurringObligation = extracted['isRecurring'] ?? _isRecurringObligation;
-        _ocrConfidence = extracted['confidence'] != null ? (double.tryParse(extracted['confidence'].toString()) ?? 0.986) : 0.986;
-        _statusMessage = 'OCR Extraction Successful • (${(_ocrConfidence * 100).toStringAsFixed(1)}% Confidence)';
-      } else {
-        _statusMessage = 'OCR Extraction Complete • (98.4% Confidence)';
-      }
-      AudioService.speak('Bill scanned. Detected ${_merchantController.text} for ₹${_amountController.text}.');
-    });
+      final extracted = await ApiService.extractOcrFromImage(
+        imageBase64: base64Image,
+        mimeType: image.mimeType ?? 'image/jpeg',
+      );
+
+      setState(() {
+        _isScanning = false;
+        if (extracted != null) {
+          _merchantController.text = extracted['merchant'] ?? _merchantController.text;
+          _amountController.text = (extracted['amount'] ?? _amountController.text).toString();
+          _dueDateController.text = extracted['dueDate'] ?? _dueDateController.text;
+          _invoiceNoController.text = extracted['invoiceNumber'] ?? _invoiceNoController.text;
+          _selectedCategory = extracted['category'] ?? _selectedCategory;
+          _isRecurringObligation = extracted['isRecurring'] ?? _isRecurringObligation;
+          _ocrConfidence = extracted['confidence'] != null ? (double.tryParse(extracted['confidence'].toString()) ?? 0.986) : 0.986;
+          _statusMessage = 'OCR Extraction Successful • (${(_ocrConfidence * 100).toStringAsFixed(1)}% Confidence)';
+        } else {
+          _statusMessage = 'OCR Extraction Failed. Could not parse image.';
+        }
+        AudioService.speak('Bill scanned. Detected ${_merchantController.text} for ₹${_amountController.text}.');
+      });
+    } catch (e) {
+      setState(() {
+        _isScanning = false;
+        _statusMessage = 'Camera error: $e';
+      });
+    }
   }
 
   void _commitBillToCausalGraph() async {
@@ -107,6 +168,7 @@ class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerPr
       dueDate: _dueDateController.text.trim(),
       invoiceNumber: _invoiceNoController.text.trim(),
       isRecurringObligation: _isRecurringObligation,
+      userId: AppSession.userId ?? ApiService.demoUserId,
     );
 
     setState(() {
@@ -334,9 +396,9 @@ class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerPr
 
   Widget _buildOcrViewfinder() {
     return Container(
-      height: 180,
+      height: 250,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.black87,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -347,20 +409,25 @@ class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerPr
         ],
       ),
       child: Stack(
+        fit: StackFit.expand,
         children: [
-          // Illustration Background
-          Positioned.fill(
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Opacity(
-                opacity: 0.35,
-                child: SvgPicture.asset(
-                  'assets/illustrations/undraw_receipt_oemh.svg',
-                  fit: BoxFit.contain,
+          // Live Camera Preview
+          if (_isCameraInitialized && _cameraController != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: _cameraController!.value.previewSize?.height ?? 1,
+                  height: _cameraController!.value.previewSize?.width ?? 1,
+                  child: CameraPreview(_cameraController!),
                 ),
               ),
+            )
+          else
+            const Center(
+              child: CircularProgressIndicator(color: Colors.white),
             ),
-          ),
 
           // Laser Scanning Overlay Animation
           if (_isScanning)
@@ -368,7 +435,7 @@ class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerPr
               animation: _scanLaserController,
               builder: (context, child) {
                 return Positioned(
-                  top: 20 + (_scanLaserController.value * 140),
+                  top: 20 + (_scanLaserController.value * 210),
                   left: 20,
                   right: 20,
                   child: Container(
@@ -393,25 +460,26 @@ class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerPr
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  _isScanning ? Icons.document_scanner_rounded : Icons.camera_alt_rounded,
-                  color: const Color(0xFF1548DC),
-                  size: 38,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _isScanning ? 'EXTRACTING TEXT & LINE ITEMS...' : 'ALIGN BILL / INVOICE IN CAMERA',
-                  style: const TextStyle(color: Color(0xFF1C2434), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
-                ),
-                const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  onPressed: _isScanning ? null : _performOcrScan,
-                  icon: const Icon(Icons.camera_enhance_rounded, size: 16),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                if (!_isCameraInitialized)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16.0),
+                    child: Text('INITIALIZING CAMERA...', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
                   ),
-                  label: Text(_isScanning ? 'Scanning...' : 'SCAN FROM CAMERA / PRESET'),
-                ),
+                if (_isCameraInitialized)
+                  Opacity(
+                    opacity: _isScanning ? 1.0 : 0.8,
+                    child: ElevatedButton.icon(
+                      onPressed: _isScanning ? null : _performOcrScan,
+                      icon: const Icon(Icons.camera_rounded, size: 20),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _isScanning ? Colors.grey : const Color(0xFF1548DC),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                      ),
+                      label: Text(_isScanning ? 'EXTRACTING...' : 'CAPTURE & SCAN'),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -505,4 +573,3 @@ class _OcrScannerScreenState extends State<OcrScannerScreen> with SingleTickerPr
     );
   }
 }
-

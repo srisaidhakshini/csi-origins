@@ -40,9 +40,10 @@ class _WalletScreenState extends State<WalletScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final userSummary = await ApiService.fetchUserSummary();
-      final txList = await ApiService.fetchTransactions();
-      final insightList = await ApiService.asyncFetchSurfacedInsights();
+      final uid = AppSession.userId ?? ApiService.demoUserId;
+      final userSummary = await ApiService.fetchUserSummary(userId: uid);
+      final txList = await ApiService.fetchTransactions(userId: uid);
+      final insightList = await ApiService.asyncFetchSurfacedInsights(userId: uid);
 
       if (mounted) {
         setState(() {
@@ -141,7 +142,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 },
                 child: AppSession.userPicture != null && AppSession.userPicture!.isNotEmpty
                     ? CircleAvatar(
-                        backgroundImage: NetworkImage(AppSession.userPicture!),
+                        backgroundImage: NetworkImage('http://localhost:3000/api/image-proxy?url=${Uri.encodeComponent(AppSession.userPicture!)}'),
                         radius: 16,
                       )
                     : const CircleAvatar(
@@ -282,35 +283,16 @@ class _WalletScreenState extends State<WalletScreen> {
                           child: ListView(
                             scrollDirection: Axis.horizontal,
                             children: [
-                              _buildTransferAvatar('Alex', 'https://i.pravatar.cc/150?u=a042581f4e29026704d'),
-                              _buildTransferAvatar('Sarah', 'https://i.pravatar.cc/150?u=a042581f4e29026704e'),
-                              _buildTransferAvatar('Mike', 'https://i.pravatar.cc/150?u=a042581f4e29026704f'),
-                              _buildTransferAvatar('Emma', 'https://i.pravatar.cc/150?u=a042581f4e29026704g'),
-                              _buildTransferAvatar('John', 'https://i.pravatar.cc/150?u=a042581f4e29026704h'),
+                              _buildTransferAvatar('Alex', null),
+                              _buildTransferAvatar('Sarah', null),
+                              _buildTransferAvatar('Mike', null),
+                              _buildTransferAvatar('Emma', null),
+                              _buildTransferAvatar('John', null),
                             ],
                           ),
                         ),
 
-                        // Section 3: Active Interventions & 1-Click Action Hub
-                        if (_insights.isNotEmpty) ...[
-                          const Text(
-                            'AUTONOMOUS INTERVENTIONS (1-CLICK EXECUTE)',
-                            style: TextStyle(color: Color(0xFF5A6E85), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
-                          ),
-                          const SizedBox(height: 8),
-                          if (_actionStatus.isNotEmpty) ...[
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEBF1FF),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(_actionStatus, style: const TextStyle(color: Color(0xFF1548DC), fontSize: 11, fontWeight: FontWeight.bold)),
-                            ),
-                            const SizedBox(height: 8),
-                          ],
-                          for (final ins in _insights) _buildInterventionCard(ins),
-                        ],
+
                       ],
                     ),
                   ),
@@ -320,20 +302,24 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Widget _buildTransferAvatar(String name, String imageUrl) {
+  Widget _buildTransferAvatar(String name, String? imageUrl) {
     return Padding(
-      padding: const EdgeInsets.only(right: 16.0),
+      padding: const EdgeInsets.only(right: 16),
       child: Column(
         children: [
           CircleAvatar(
-            radius: 26,
-            backgroundImage: NetworkImage(imageUrl),
+            radius: 24,
+            backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+            backgroundColor: const Color(0xFFE5E9F2),
+            child: imageUrl == null
+                ? Text(
+                    name.substring(0, 1),
+                    style: const TextStyle(color: Color(0xFF5A6E85), fontWeight: FontWeight.bold),
+                  )
+                : null,
           ),
-          const SizedBox(height: 6),
-          Text(
-            name,
-            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0A1628)),
-          ),
+          const SizedBox(height: 8),
+          Text(name, style: const TextStyle(color: Color(0xFF5A6E85), fontSize: 11, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -465,73 +451,6 @@ class _WalletScreenState extends State<WalletScreen> {
 
 
 
-  Widget _buildInterventionCard(Insight ins) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFFFEBEE), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFC62828).withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFEBEE),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Text(
-                  'CRITICAL INTERVENTION',
-                  style: TextStyle(color: Color(0xFFC62828), fontSize: 9, fontWeight: FontWeight.w900),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF1548DC), size: 20),
-                onPressed: () => _openVoiceCall(ins),
-                tooltip: 'Emergency Voice Call',
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            ins.explanation,
-            style: const TextStyle(color: Color(0xFF1C2434), fontSize: 12.5, height: 1.35),
-          ),
-          if (ins.actions.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            for (final action in ins.actions)
-              Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: action.status == 'executed' ? null : () => _executeAction(ins, action),
-                    icon: Icon(action.status == 'executed' ? Icons.check_circle : Icons.flash_on_rounded, size: 14),
-                    label: Text(action.status == 'executed' ? 'Executed' : action.title),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: action.status == 'executed' ? const Color(0xFF00A86B) : const Color(0xFF1548DC),
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
+
 }
 

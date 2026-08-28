@@ -8,6 +8,15 @@ import prisma from '../db/prisma';
 const router = Router();
 
 /**
+ * GET /api/auth/google
+ * Root redirect to login
+ */
+router.get('/', (req: Request, res: Response) => {
+  const state = (req.query.state as string) || 'new_user';
+  res.redirect(`/api/auth/google/login?state=${encodeURIComponent(state)}`);
+});
+
+/**
  * GET /api/auth/google/login
  * Redirects browser to Google OAuth consent screen.
  * State encodes: 'new_user' or existing userId
@@ -29,7 +38,7 @@ router.get('/login', (req: Request, res: Response) => {
 
 /**
  * GET /api/auth/google/connect-gmail
- * Redirects browser to Google OAuth consent screen specifically for Gmail parsing.
+ * Redirects browser to Google OAuth consent screen for account sync.
  */
 router.get('/connect-gmail', (req: Request, res: Response) => {
   const state = (req.query.state as string) || 'demo_user';
@@ -38,7 +47,6 @@ router.get('/connect-gmail', (req: Request, res: Response) => {
     access_type: 'offline',
     prompt: 'consent',
     scope: [
-      'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
     ],
