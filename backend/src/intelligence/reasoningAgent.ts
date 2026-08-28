@@ -29,7 +29,7 @@ export class ReasoningAgent {
 
   private static getGeminiClient(): GoogleGenerativeAI | null {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-    if (!this.geminiClient && apiKey) {
+    if (!this.geminiClient && apiKey && !apiKey.startsWith('AQ.')) {
       this.geminiClient = new GoogleGenerativeAI(apiKey);
     }
     return this.geminiClient;
@@ -61,7 +61,7 @@ Here are the VERIFIED DETERMINISTIC FACTS computed from their financial causal g
 TASK:
 Write a clear, empathetic 2-sentence explanation of what is happening, why the delay causes a shortfall, and the exact action needed. Use the exact numbers provided.`;
 
-    // 1. Try Gemini API first
+    // 1. Try Gemini API first if configured
     const gemini = this.getGeminiClient();
     if (gemini) {
       try {
@@ -74,8 +74,8 @@ Write a clear, empathetic 2-sentence explanation of what is happening, why the d
         if (text && text.trim().length > 0) {
           return text.trim();
         }
-      } catch (error) {
-        console.warn('⚠️ Gemini API call failed. Checking alternate provider...', error);
+      } catch (error: any) {
+        console.warn('ℹ️ Gemini API note:', error.message || error);
       }
     }
 
@@ -94,8 +94,8 @@ Write a clear, empathetic 2-sentence explanation of what is happening, why the d
         if (textBlock && textBlock.type === 'text') {
           return textBlock.text.trim();
         }
-      } catch (error) {
-        console.warn('⚠️ Anthropic API call failed. Using deterministic factual template narrative.', error);
+      } catch (error: any) {
+        console.warn('ℹ️ Anthropic API note:', error.message || error);
       }
     }
 
@@ -136,8 +136,8 @@ Write a concise 2-sentence explanation comparing this transaction to their typic
         if (text && text.trim().length > 0) {
           return text.trim();
         }
-      } catch (error) {
-        console.warn('⚠️ Gemini API call failed. Checking alternate provider...', error);
+      } catch (error: any) {
+        console.warn('ℹ️ Gemini API note:', error.message || error);
       }
     }
 
@@ -156,8 +156,8 @@ Write a concise 2-sentence explanation comparing this transaction to their typic
         if (textBlock && textBlock.type === 'text') {
           return textBlock.text.trim();
         }
-      } catch (error) {
-        console.warn('⚠️ Anthropic API call failed. Using deterministic factual template narrative.', error);
+      } catch (error: any) {
+        console.warn('ℹ️ Anthropic API note:', error.message || error);
       }
     }
 

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import http from 'http';
 import app from '../index';
 import { DEMO_USER_ID } from '../constants';
@@ -119,6 +120,36 @@ async function verifyPhase7() {
     );
     console.log(`   [Status ${cascadeTriggerRes.status}] Shortfall: ₹${cascadeTriggerRes.body.cascadeEvaluation?.totalShortfall} | Gate Decision: ${cascadeTriggerRes.body.insight?.status.toUpperCase()}`);
     console.log(`   Explanation: "${cascadeTriggerRes.body.insight?.explanation}"\n`);
+
+    // 10. GET /api/voice/briefing/:insightId (ElevenLabs Neural Voice Alert)
+    if (insightsRes.body.insights && insightsRes.body.insights.length > 0) {
+      const sampleId = insightsRes.body.insights[0].id;
+      console.log(`🔟 Testing GET /api/voice/briefing/${sampleId} (Voice Briefing Generation) ...`);
+      const voiceRes = await request({ ...baseOpt, path: `/api/voice/briefing/${sampleId}`, method: 'GET' });
+      console.log(`   [Status ${voiceRes.status}] Provider: ${voiceRes.body.provider} | Voice ID: ${voiceRes.body.voiceId}`);
+      console.log(`   Spoken Text: "${voiceRes.body.spokenText?.substring(0, 70)}..."\n`);
+    }
+
+    // 11. POST /api/actions/execute (Execute 1-Click Counter Action)
+    if (insightsRes.body.insights && insightsRes.body.insights.length > 0) {
+      const sampleInsight = insightsRes.body.insights[0];
+      const actions = sampleInsight.actions || [];
+      if (actions.length > 0) {
+        const action = actions[0];
+        console.log(`1️⃣1️⃣ Testing POST /api/actions/execute (1-Click Action Execution) ...`);
+        const actionRes = await request(
+          { ...baseOpt, path: '/api/actions/execute', method: 'POST' },
+          JSON.stringify({
+            userId: DEMO_USER_ID,
+            insightId: sampleInsight.id,
+            actionId: action.id,
+            actionType: action.actionType,
+            payload: action.payload,
+          })
+        );
+        console.log(`   [Status ${actionRes.status}] Result: "${actionRes.body.message}" (Status: ${actionRes.body.status})\n`);
+      }
+    }
 
     console.log('✨ Phase 7 Backend REST API Verification Complete & All Endpoints Tested!');
   } finally {

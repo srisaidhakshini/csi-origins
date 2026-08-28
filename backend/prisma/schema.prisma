@@ -76,9 +76,12 @@ model Insight {
   urgency     Decimal? @db.Decimal(5, 2)
   gateScore   Decimal? @map("gate_score") @db.Decimal(5, 2)
   status      String   // 'surfaced' | 'suppressed'
-  explanation String?  @db.Text
-  graphPath   Json?    @map("graph_path")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  explanation   String?  @db.Text
+  graphPath     Json?    @map("graph_path")
+  councilDebate Json?    @map("council_debate")
+  actions       Json?    @map("actions")
+  voiceAudio    String?  @map("voice_audio") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
