@@ -27,6 +27,25 @@ app.use('/api/voice', voiceRoutes);
 app.use('/api/actions', actionRoutes);
 app.use('/api/chat', chatRoutes);
 
+// Image proxy to bypass CanvasKit CORS for Google Profile Pictures
+app.get('/api/image-proxy', async (req, res) => {
+  try {
+    const url = req.query.url as string;
+    if (!url) {
+      return res.status(400).send('URL is required');
+    }
+    const fetch = (await import('node-fetch')).default;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch image');
+    const buffer = await response.buffer();
+    res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).send('Error proxying image');
+  }
+});
+
 // Health check
 app.get('/health', async (_req, res) => {
   try {

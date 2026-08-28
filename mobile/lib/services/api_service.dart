@@ -418,7 +418,7 @@ class ApiService {
   }
 
   /// Trigger Gmail Transaction Ingestion Sync
-  static Future<Map<String, dynamic>?> syncGmail({String userId = demoUserId}) async {
+  static Future<Map<String, dynamic>?> syncGmail({required String userId}) async {
     final uri = Uri.parse('$baseUrl/auth/google/sync');
     try {
       final response = await http.post(
@@ -436,7 +436,7 @@ class ApiService {
   }
 
   /// Disconnect Google Account session
-  static Future<bool> disconnectGoogle({String userId = demoUserId}) async {
+  static Future<bool> disconnectGoogle({required String userId}) async {
     final uri = Uri.parse('$baseUrl/auth/google/disconnect');
     try {
       final response = await http.post(
@@ -447,6 +447,25 @@ class ApiService {
       return response.statusCode == 200;
     } catch (e) {
       debugPrint('Error disconnecting Google: $e');
+    }
+    return false;
+  }
+
+  /// Update User Preferences (SMS/Gmail config)
+  static Future<bool> updatePreferences({required String userId, bool? smsEnabled}) async {
+    final uri = Uri.parse('$baseUrl/users/preferences');
+    try {
+      final Map<String, dynamic> body = {'userId': userId};
+      if (smsEnabled != null) body['smsEnabled'] = smsEnabled;
+      
+      final response = await http.put(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(body),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error updating preferences: $e');
     }
     return false;
   }

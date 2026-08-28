@@ -23,16 +23,38 @@ export class GmailWatcher {
     console.log(`📬 [GmailWatcher] Started continuous transaction email parser (interval: ${intervalMs / 1000}s)`);
 
     // Run immediate scan
-    this.syncUserInbox(DEMO_USER_ID).catch(err => console.error('Initial Gmail sync error:', err));
+    this.syncAllUsers().catch(err => console.error('Initial Gmail sync error:', err));
 
     // Schedule recurring background interval
     this.timer = setInterval(async () => {
       try {
-        await this.syncUserInbox(DEMO_USER_ID);
+        await this.syncAllUsers();
       } catch (err) {
         console.error('Error during scheduled Gmail sync:', err);
       }
     }, intervalMs);
+  }
+
+  /**
+   * Helper to sync all active users
+   */
+  private static async syncAllUsers() {
+    const users = await prisma.user.findMany({
+      where: {
+        gmailRefreshToken: {
+          not: null,
+        },
+      },
+    });
+
+    for (const user of users) {
+      if (user.id !== DEMO_USER_ID) {
+        // We can sync demo user if we want, but normally sync real users
+        await this.syncUserInbox(user.id).catch(err => console.error(`Error syncing inbox for ${user.id}:`, err));
+      } else {
+        await this.syncUserInbox(DEMO_USER_ID).catch(err => console.error('Demo sync error:', err));
+      }
+    }
   }
 
   /**

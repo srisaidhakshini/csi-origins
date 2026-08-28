@@ -181,4 +181,30 @@ router.post('/:id/risk-tolerance', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * PUT /api/users/preferences
+ * Update specific user preferences like SMS parsing
+ */
+router.put('/preferences', async (req: Request, res: Response) => {
+  try {
+    const userId = req.body.userId || DEMO_USER_ID;
+    const { smsEnabled } = req.body;
+
+    const updateData: any = {};
+    if (smsEnabled !== undefined) {
+      updateData.smsEnabled = Boolean(smsEnabled);
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    res.json({ success: true, message: 'Preferences updated successfully' });
+  } catch (error: any) {
+    console.error('Error updating preferences:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

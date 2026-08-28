@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
+import '../main.dart';
 import '../services/audio_service.dart';
 import '../services/sms_listener_service.dart';
 import 'ocr_scanner_screen.dart';
@@ -56,10 +57,10 @@ class _SyncScreenState extends State<SyncScreen> {
   }
 
   Future<void> _checkGoogleStatus() async {
-    final status = await ApiService.getGoogleStatus();
+    final status = await ApiService.getGoogleStatus(userId: AppSession.userId ?? ApiService.demoUserId);
     if (status != null && mounted) {
       setState(() {
-        _isConnected = status['isConnected'] ?? true;
+        _isConnected = status['isConnected'] ?? false;
         _userEmail = status['email'] ?? '';
       });
     }
@@ -67,7 +68,7 @@ class _SyncScreenState extends State<SyncScreen> {
 
   Future<void> _loadTransactions() async {
     setState(() => _isLoading = true);
-    final txList = await ApiService.fetchTransactions();
+    final txList = await ApiService.fetchTransactions(userId: AppSession.userId ?? ApiService.demoUserId);
     if (mounted) {
       setState(() {
         _transactions = txList;
@@ -83,7 +84,7 @@ class _SyncScreenState extends State<SyncScreen> {
       _syncStatus = 'Google account logged out. Tap "Connect Google Account" to launch OAuth.';
     });
 
-    await ApiService.disconnectGoogle();
+    final success = await ApiService.disconnectGoogle(userId: AppSession.userId ?? '');
   }
 
   void _connectGoogleOAuth() {
@@ -100,7 +101,7 @@ class _SyncScreenState extends State<SyncScreen> {
       _syncStatus = 'Scanning Gmail inbox for transactions [newer_than:7d]...';
     });
 
-    final res = await ApiService.syncGmail();
+    final res = await ApiService.syncGmail(userId: AppSession.userId ?? '');
     await _loadTransactions();
 
     setState(() {

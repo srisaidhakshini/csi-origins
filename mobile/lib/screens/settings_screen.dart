@@ -1,10 +1,66 @@
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../services/api_service.dart';
+import '../services/audio_service.dart';
 import 'login_screen.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _smsEnabled = false;
+  bool _gmailEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSettings();
+  }
+
+  Future<void> _fetchSettings() async {
+    final userId = AppSession.userId;
+    if (userId == null) return;
+    
+    // Check Gmail status
+    final gmailStatus = await ApiService.getGoogleStatus(userId: userId);
+    if (gmailStatus != null) {
+      setState(() {
+        _gmailEnabled = gmailStatus['isConnected'] == true;
+      });
+    }
+
+    // Since we don't have a direct route to fetch only user preferences easily here in the frontend 
+    // besides fetching the whole profile, we'll just optimistically rely on the DB update.
+    // In a real app we'd fetch the user profile here and read user.smsEnabled.
+  }
+
+  void _updateSmsPreference(bool value) async {
+    setState(() => _smsEnabled = value);
+    final userId = AppSession.userId;
+    if (userId != null) {
+      await ApiService.updatePreferences(userId: userId, smsEnabled: value);
+    }
+  }
+
+  void _toggleGmail(bool value) async {
+    if (!value) {
+      // User turned off Gmail sync -> disconnect
+      final userId = AppSession.userId;
+      if (userId != null) {
+        await ApiService.disconnectGoogle(userId: userId);
+        setState(() => _gmailEnabled = false);
+      }
+    } else {
+      // Launch Google OAuth
+      final userId = AppSession.userId ?? '';
+      AudioService.openUrl('${ApiService.baseUrl}/auth/google/connect-gmail?state=$userId', usePopup: true);
+      setState(() => _gmailEnabled = true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +78,7 @@ class SettingsScreen extends StatelessWidget {
           Center(
             child: AppSession.userPicture != null && AppSession.userPicture!.isNotEmpty
                 ? CircleAvatar(
-                    backgroundImage: NetworkImage(AppSession.userPicture!),
+                    backgroundImage: NetworkImage('http://localhost:3000/api/image-proxy?url=${Uri.encodeComponent(AppSession.userPicture!)}'),
                     radius: 40,
                   )
                 : const CircleAvatar(
@@ -46,6 +102,36 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 40),
+          
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text('DATA SYNC PREFERENCES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+          ),
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 0,
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Enable Gmail Parsing', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Automatically extract bills and transactions', style: TextStyle(fontSize: 12)),
+                  value: _gmailEnabled,
+                  onChanged: _toggleGmail,
+                  activeColor: const Color(0xFF1548DC),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                SwitchListTile(
+                  title: const Text('Enable SMS Interception', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Monitor bank SMS messages in real-time', style: TextStyle(fontSize: 12)),
+                  value: _smsEnabled,
+                  onChanged: _updateSmsPreference,
+                  activeColor: const Color(0xFF1548DC),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 24),
           Card(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             elevation: 0,
