@@ -7,11 +7,11 @@ import '../models/insight.dart';
 class ApiService {
   static const String demoUserId = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
 
-  // Automatically adjust localhost for Android Emulator vs iOS / Desktop / Web
+  // Automatically adjust localhost for Android (ADB reverse / Wi-Fi) vs iOS / Desktop / Web
   static String get baseUrl {
     if (kIsWeb) return 'http://localhost:3000/api';
     try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:3000/api';
+      if (Platform.isAndroid) return 'http://127.0.0.1:3000/api';
     } catch (_) {}
     return 'http://localhost:3000/api';
   }
@@ -80,8 +80,48 @@ class ApiService {
     return [];
   }
 
-  /// Fetch dynamic user profile (Name, Archetype, Net Worth, Risk Tolerance)
-  static Future<Map<String, dynamic>?> fetchUserProfile({String userId = demoUserId}) async {
+  /// Submit onboarding setup and persist nodes to database
+  static Future<bool> submitOnboarding({
+    required String persona,
+    required double bufferBalance,
+    required double primaryIncome,
+    required String incomeLabel,
+    required double rentAmount,
+    required double sipAmount,
+    required String riskProfile,
+    String userId = demoUserId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/users/onboarding');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'persona': persona,
+          'bufferBalance': bufferBalance,
+          'primaryIncome': primaryIncome,
+          'incomeLabel': incomeLabel,
+          'rentAmount': rentAmount,
+          'sipAmount': sipAmount,
+          'riskTolerance': riskProfile,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error submitting onboarding: $e');
+      return false;
+    }
+  }
+
+  /// Check whether user has completed onboarding / has nodes in database
+  static Future<bool> checkOnboardingStatus({String userId = demoUserId}) async {
+    final user = await fetchUserSummary(userId: userId);
+    return user?['hasCompletedOnboarding'] == true;
+  }
+
+  /// Fetch full user summary, buffer balance and obligations
+  static Future<Map<String, dynamic>?> fetchUserSummary({String userId = demoUserId}) async {
     final uri = Uri.parse('$baseUrl/users/$userId');
     try {
       final response = await http.get(uri);
@@ -90,32 +130,24 @@ class ApiService {
         return data['user'];
       }
     } catch (e) {
-      debugPrint('Error fetching user profile: $e');
+      debugPrint('Error fetching user summary: $e');
     }
     return null;
   }
 
-  /// Update dynamic user profile (Name, Archetype, etc.)
-  static Future<bool> updateUserProfile({
-    required String name,
-    String? archetype,
-    String userId = demoUserId,
-  }) async {
-    final uri = Uri.parse('$baseUrl/users/$userId/profile');
+  /// Fetch recorded transactions
+  static Future<List<dynamic>> fetchTransactions({String userId = demoUserId}) async {
+    final uri = Uri.parse('$baseUrl/graph/nodes?userId=$userId');
     try {
-      final response = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'name': name,
-          if (archetype != null) 'archetype': archetype,
-        }),
-      );
-      return response.statusCode == 200;
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['transactions'] ?? [];
+      }
     } catch (e) {
-      debugPrint('Error updating user profile: $e');
-      return false;
+      debugPrint('Error fetching transactions: $e');
     }
+    return [];
   }
 
   /// Update risk tolerance setting
