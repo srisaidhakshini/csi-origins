@@ -64,13 +64,16 @@ class _InsightCardState extends State<InsightCard> {
     final ins = widget.insight;
     final isCascade = ins.triggerType == 'cascade';
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF111111),
-        border: Border.all(
-          color: widget.isSuppressed ? Colors.white12 : Colors.white24,
-          width: 1,
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: widget.isSuppressed
+              ? Colors.white10
+              : themeColor.withValues(alpha: 0.4),
+          width: widget.isSuppressed ? 1 : 1.5,
         ),
       ),
       child: Padding(
@@ -85,16 +88,31 @@ class _InsightCardState extends State<InsightCard> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      color: Colors.white,
-                      child: Text(
-                        isCascade ? 'CASCADE RISK' : 'BEHAVIORAL ANOMALY',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8,
-                        ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: themeColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: themeColor.withValues(alpha: 0.6)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isCascade ? Icons.warning_amber_rounded : Icons.trending_up_rounded,
+                            color: themeColor,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isCascade ? 'CASCADE RISK' : 'BEHAVIORAL ANOMALY',
+                            style: TextStyle(
+                              color: themeColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (widget.isSuppressed) ...[

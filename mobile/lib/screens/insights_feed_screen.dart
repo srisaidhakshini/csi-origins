@@ -100,8 +100,11 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          color: const Color(0xFF222222),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.greenAccent.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           child: const Text(
                             'GATE SCORE ≥ 60.0',
                             style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
@@ -156,8 +159,16 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF111111),
-        border: Border.all(color: Colors.white24, width: 1),
+        gradient: LinearGradient(
+          colors: [
+            Colors.indigo.shade900.withValues(alpha: 0.6),
+            const Color(0xFF1E2230),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.indigoAccent.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
