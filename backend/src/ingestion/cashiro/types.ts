@@ -2,6 +2,7 @@ export type CashiroTransactionType = 'credit' | 'debit';
 
 export interface CashiroParsedTransaction {
   amount: number;
+  currency?: string;
   type: CashiroTransactionType;
   merchant: string;
   accountNumber?: string;
@@ -10,6 +11,7 @@ export interface CashiroParsedTransaction {
   category: string;
   bankName: string;
   rawBody: string;
+  isOtp?: boolean;
 }
 
 export interface BankParser {

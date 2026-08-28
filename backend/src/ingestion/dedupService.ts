@@ -1,11 +1,10 @@
 import prisma from '../db/prisma';
 import { CommonEvent, NodeConfidence } from './types';
-import { generateFingerprint, isFuzzyFingerprintMatch } from './fingerprint';
+import { generateFingerprint } from './fingerprint';
 
 export interface IngestionDedupResult {
   isMerged: boolean;
-  rawEventId: string;
-  matchedEventId?: string;
+  transactionId?: string;
   fingerprint: string;
   finalConfidence: NodeConfidence;
   event: CommonEvent;
@@ -13,114 +12,52 @@ export interface IngestionDedupResult {
 
 export class DedupService {
   /**
-   * Ingests a common event, evaluates fingerprinting, and merges or inserts into raw_events
+   * Evaluates deduplication for incoming event and inserts/merges into transactions table
    */
   public static async ingestAndDedup(event: CommonEvent): Promise<IngestionDedupResult> {
     const fingerprint = generateFingerprint(event.amount, event.merchant, event.timestamp);
 
-    // Look back and forward ±48 hours
-    const windowStart = new Date(event.timestamp.getTime() - 48 * 60 * 60 * 1000);
-    const windowEnd = new Date(event.timestamp.getTime() + 48 * 60 * 60 * 1000);
-
-    // Find candidate events in the same time window
-    const candidates = await prisma.rawEvent.findMany({
-      where: {
-        userId: event.userId,
-        createdAt: {
-          gte: windowStart,
-          lte: windowEnd,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
+    // Look for existing transaction with exact fingerprint
+    const existing = await prisma.transaction.findUnique({
+      where: { fingerprint },
     });
 
-    let matchedCandidate: any = null;
-
-    // 1. Direct Fingerprint Match
-    matchedCandidate = candidates.find(c => c.fingerprint === fingerprint);
-
-    // 2. Fuzzy match across boundary window
-    if (!matchedCandidate) {
-      for (const candidate of candidates) {
-        if (candidate.matchedEventId) continue; // Skip already merged secondary events
-
-        const candidatePayload = (typeof candidate.rawPayload === 'string'
-          ? JSON.parse(candidate.rawPayload)
-          : candidate.rawPayload) as any;
-
-        const candidateAmount = Number(candidatePayload?.amount) || 0;
-        const candidateMerchant = String(candidatePayload?.merchant || candidatePayload?.originalSender || '');
-        const candidateTime = new Date(candidate.createdAt);
-
-        if (
-          isFuzzyFingerprintMatch(
-            { amount: event.amount, merchant: event.merchant, timestamp: event.timestamp },
-            { amount: candidateAmount, merchant: candidateMerchant, timestamp: candidateTime }
-          )
-        ) {
-          matchedCandidate = candidate;
-          break;
-        }
-      }
-    }
-
-    if (matchedCandidate) {
-      // MATCH FOUND: Merge and link
-      const newRawEvent = await prisma.rawEvent.create({
-        data: {
-          userId: event.userId,
-          source: event.source,
-          fingerprint,
-          matchedEventId: matchedCandidate.id,
-          rawPayload: {
-            ...event.rawPayload,
-            amount: event.amount,
-            merchant: event.merchant,
-            type: event.type,
-            category: event.category,
-            mergedWith: matchedCandidate.id,
-            mergedSource: matchedCandidate.source,
-          },
-          createdAt: event.timestamp,
-        },
-      });
-
-      console.log(`🔗 [DEDUP MERGE] Event from ${event.source.toUpperCase()} merged with existing event (${matchedCandidate.source.toUpperCase()} - ${matchedCandidate.id}). Confidence upgraded to CONFIRMED.`);
-
+    if (existing) {
+      console.log(`🔗 [DEDUP] Duplicate transaction found for ${event.merchant} (₹${event.amount}). Skipping double-insertion.`);
       return {
         isMerged: true,
-        rawEventId: newRawEvent.id,
-        matchedEventId: matchedCandidate.id,
+        transactionId: existing.id,
         fingerprint,
-        finalConfidence: 'confirmed', // Corroborating sources upgrade confidence
+        finalConfidence: 'confirmed',
         event,
       };
     }
 
-    // NO MATCH: Insert new raw event
-    const newRawEvent = await prisma.rawEvent.create({
+    // Insert new clean transaction
+    const newTx = await prisma.transaction.create({
       data: {
         userId: event.userId,
+        amount: event.amount,
+        currency: event.rawPayload?.currency || 'INR',
+        merchant: event.merchant,
+        category: event.category || 'general',
+        type: event.type,
         source: event.source,
+        accountNumber: event.rawPayload?.accountNumber,
+        referenceNumber: event.rawPayload?.referenceNumber,
+        balance: event.rawPayload?.balance !== undefined ? event.rawPayload.balance : null,
+        bankName: event.rawPayload?.bankName,
         fingerprint,
-        rawPayload: {
-          ...event.rawPayload,
-          amount: event.amount,
-          merchant: event.merchant,
-          type: event.type,
-          category: event.category,
-        },
-        createdAt: event.timestamp,
+        timestamp: event.timestamp || new Date(),
+        rawText: event.rawPayload?.originalBody || null,
       },
     });
 
-    const confidence: NodeConfidence = event.source === 'gmail' || event.source === 'manual' ? 'confirmed' : 'inferred';
-
     return {
       isMerged: false,
-      rawEventId: newRawEvent.id,
+      transactionId: newTx.id,
       fingerprint,
-      finalConfidence: confidence,
+      finalConfidence: 'confirmed',
       event,
     };
   }
