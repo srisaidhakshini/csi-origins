@@ -10,7 +10,7 @@ export interface AnomalyScoreResult {
   baselineStd: number;
   zScore: number;
   percentileApprox: number;
-  anomalyScore: number; // 0 to 100
+  anomalyScore: number;
   isAnomaly: boolean;
   sampleCount: number;
   recencyWeightingApplied: boolean;
@@ -28,7 +28,7 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 
 export class AnomalyDetector {
   /**
-   * Evaluates spend event against a recency-weighted rolling baseline per category & day-of-week.
+   * Evaluates spend event against previous transactions for the user
    */
   public static async scoreEvent(event: CommonEvent): Promise<AnomalyScoreResult> {
     const category = event.category || 'general';
@@ -36,56 +36,28 @@ export class AnomalyDetector {
     const dayOfWeek = eventDate.getDay();
     const dayName = DAY_NAMES[dayOfWeek];
 
-    // Fetch historical debit raw events for the same user and category
-    const historicalRaw = await prisma.rawEvent.findMany({
+    // Fetch historical debit transactions
+    const historicalTx = await prisma.transaction.findMany({
       where: {
         userId: event.userId,
-        createdAt: { lt: eventDate }
+        type: 'debit',
+        timestamp: { lt: eventDate },
       },
-      orderBy: { createdAt: 'desc' },
-      take: 100,
+      orderBy: { timestamp: 'desc' },
+      take: 50,
     });
 
-    const samples: Array<{ amount: number; date: Date; ageDays: number }> = [];
-
-    for (const raw of historicalRaw) {
-      const payload = raw.rawPayload as any;
-      const rawAmount = Number(payload?.amount) || 0;
-      const rawType = payload?.type || 'debit';
-      const rawCategory = payload?.category || '';
-
-      if (rawType === 'debit' && rawAmount > 0) {
-        const rawDate = new Date(raw.createdAt);
-        const ageDays = Math.max(0, (eventDate.getTime() - rawDate.getTime()) / (1000 * 60 * 60 * 24));
-        const rawDayOfWeek = rawDate.getDay();
-
-        // Exact category match
-        if (rawCategory === category || (!rawCategory && category === 'general')) {
-          samples.push({
-            amount: rawAmount,
-            date: rawDate,
-            ageDays,
-          });
-        }
-      }
-    }
-
-    // Fallback if category has very few samples: use all non-obligation everyday spends (< ₹5000)
-    if (samples.length < 3) {
-      for (const raw of historicalRaw) {
-        const payload = raw.rawPayload as any;
-        const rawAmount = Number(payload?.amount) || 0;
-        const rawType = payload?.type || 'debit';
-        if (rawType === 'debit' && rawAmount > 0 && rawAmount < 5000) {
-          const rawDate = new Date(raw.createdAt);
-          const ageDays = Math.max(0, (eventDate.getTime() - rawDate.getTime()) / (1000 * 60 * 60 * 24));
-          samples.push({ amount: rawAmount, date: rawDate, ageDays });
-        }
-      }
-    }
+    const samples = historicalTx.map(t => {
+      const txDate = new Date(t.timestamp);
+      const ageDays = Math.max(0, (eventDate.getTime() - txDate.getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        amount: Number(t.amount),
+        date: txDate,
+        ageDays,
+      };
+    });
 
     if (samples.length < 3) {
-      // Not enough data for robust baseline: default neutral
       return {
         amount: event.amount,
         category,
@@ -110,10 +82,7 @@ export class AnomalyDetector {
       };
     }
 
-    // 2. Compute Exponential Recency Weights
-    // 30-day half-life: lambda = ln(2) / 30 ~ 0.0231
     const lambda = Math.LN2 / 30;
-
     let weightedSum = 0;
     let totalWeight = 0;
 
@@ -125,7 +94,6 @@ export class AnomalyDetector {
 
     const recencyMean = totalWeight > 0 ? weightedSum / totalWeight : event.amount;
 
-    // Recency-weighted variance
     let weightedVarianceSum = 0;
     for (const sample of samples) {
       const weight = Math.exp(-lambda * sample.ageDays);
@@ -133,15 +101,11 @@ export class AnomalyDetector {
     }
 
     const recencyVariance = totalWeight > 0 ? weightedVarianceSum / totalWeight : 1;
-    const recencyStd = Math.max(Math.sqrt(recencyVariance), 20.0); // Minimum std floor of ₹20 to avoid div by zero
+    const recencyStd = Math.max(Math.sqrt(recencyVariance), 20.0);
 
-    // 3. Compute Z-Score
     const zScore = Math.max(0, (event.amount - recencyMean) / recencyStd);
-
-    // Anomaly score: 0 to 100 scale (z=2.0 -> 50, z=3.0 -> 75, z>=4.0 -> 100)
     const anomalyScore = Math.min(100, Math.round(zScore * 25));
     const isAnomaly = zScore >= 2.0;
-
     const deviationPercentage = Math.round(((event.amount - recencyMean) / recencyMean) * 100);
 
     return {

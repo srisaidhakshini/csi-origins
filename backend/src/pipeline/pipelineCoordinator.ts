@@ -1,116 +1,133 @@
 import { CommonEvent } from '../ingestion/types';
-import { DedupService } from '../ingestion/dedupService';
-import { GraphManager } from '../graph/graphManager';
-import { AnomalyDetector } from '../intelligence/anomalyDetector';
-import { InterventionGate } from '../gate/interventionGate';
 import prisma from '../db/prisma';
+import crypto from 'crypto';
 
 export class PipelineCoordinator {
   /**
-   * Process an incoming financial event through the entire pipeline:
-   * Ingestion ➔ Deduplication ➔ Graph Update ➔ Anomaly Detection ➔ Intervention Gate ➔ Insight Logging
+   * Process an incoming financial event directly into PostgreSQL:
+   * 1. Deduplicate by cryptographic fingerprint
+   * 2. Insert into transactions table
+   * 3. Update user's checking buffer balance
+   * 4. Check against obligations and create insights if shortfall exists
    */
   public static async processEvent(event: CommonEvent): Promise<{
     dedupResult: any;
-    anomalyResult?: any;
+    transaction?: any;
     insightCreated?: any;
   }> {
-    // 1. Ingestion & Deduplication
-    const dedupResult = await DedupService.ingestAndDedup(event);
+    const rawPayload = event.rawPayload || {};
+    const dateStr = event.timestamp instanceof Date
+      ? event.timestamp.toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
 
-    let anomalyResult: any = undefined;
-    let insightCreated: any = undefined;
+    // 1. Generate unique fingerprint
+    const fingerprint = crypto
+      .createHash('sha256')
+      .update(`${event.userId}_${event.amount}_${event.merchant.toLowerCase().trim()}_${event.type}_${dateStr}`)
+      .digest('hex');
 
-    // 2. Anomaly Evaluation for Debit spends
-    if (event.type === 'debit') {
-      anomalyResult = await AnomalyDetector.scoreEvent(event);
+    // 2. Check for duplicate transaction
+    const existing = await prisma.transaction.findUnique({
+      where: { fingerprint },
+    });
 
-      // Every notable spend gets scored by the Intervention Gate
-      const severity = anomalyResult.anomalyScore;
-      const confidence = dedupResult.finalConfidence === 'confirmed' ? 95.0 : 75.0;
-      const urgency = anomalyResult.isAnomaly ? 45.0 : 20.0;
+    if (existing) {
+      console.log(`ℹ️ Deduplicated duplicate transaction for ${event.merchant} (₹${event.amount})`);
+      return {
+        dedupResult: {
+          isMerged: true,
+          fingerprint,
+          transactionId: existing.id,
+        },
+        transaction: existing,
+      };
+    }
 
-      insightCreated = await InterventionGate.evaluateAndLogCandidate({
+    // 3. Insert transaction
+    const transaction = await prisma.transaction.create({
+      data: {
         userId: event.userId,
-        triggerType: 'anomaly',
-        severity,
-        confidence,
-        urgency,
-        graphPath: {
-          merchant: event.merchant,
-          amount: event.amount,
-          category: event.category,
-          baselineMean: anomalyResult.baselineMean,
-          zScore: anomalyResult.zScore,
-          deviationPercentage: anomalyResult.facts.deviationPercentage,
-        },
-        explanationFacts: {
-          merchant: event.merchant,
-          amount: event.amount,
-          baselineMean: anomalyResult.baselineMean,
-          zScore: anomalyResult.zScore,
-          category: event.category,
-          dayName: anomalyResult.dayName,
-          deviationPercentage: anomalyResult.facts.deviationPercentage,
-        },
-      });
-    }
-
-    // 3. Update State Layer & Graph
-    await GraphManager.updateStateFromEvent(event, dedupResult.finalConfidence);
-
-    return { dedupResult, anomalyResult, insightCreated };
-  }
-
-  /**
-   * Process a delayed income event and trigger cascade evaluation through the Intervention Gate
-   */
-  public static async processDelayedIncomeTrigger(
-    userId: string,
-    nodeId: string,
-    delayDays = 7
-  ): Promise<{ cascadeEval: any; insightCreated: any }> {
-    const cascadeEval = await GraphManager.evaluateCascadeRisk(userId, nodeId, delayDays);
-
-    // Compute severity based on shortfall deficit ratio
-    let severity = 20.0;
-    if (cascadeEval.hasDeficit) {
-      severity = Math.min(100, Math.max(70, Math.round((cascadeEval.totalShortfall / cascadeEval.totalRequired) * 100)));
-    }
-
-    // Confidence is high for confirmed graph nodes
-    const confidence = 92.0;
-
-    // Urgency is high because rent/SIP obligations are due within days
-    const urgency = 88.0;
-
-    const insightCreated = await InterventionGate.evaluateAndLogCandidate({
-      userId,
-      triggerType: 'cascade',
-      severity,
-      confidence,
-      urgency,
-      graphPath: {
-        rootNodeId: cascadeEval.rootNodeId,
-        rootNodeLabel: cascadeEval.rootNodeLabel,
-        delayDays: cascadeEval.delayDays,
-        bufferBalance: cascadeEval.availableBuffer,
-        totalShortfall: cascadeEval.totalShortfall,
-        steps: cascadeEval.cascadeSteps.map(s => ({
-          from: s.sourceLabel,
-          to: s.targetLabel,
-          relation: s.relation,
-          weight: s.weight,
-          depth: s.depth,
-        })),
-        affectedObligations: cascadeEval.affectedObligations,
-      },
-      explanationFacts: {
-        ...cascadeEval.explanationFacts,
-        atRiskObligationsStructured: cascadeEval.affectedObligations,
+        amount: event.amount,
+        currency: rawPayload.currency || 'INR',
+        merchant: event.merchant,
+        category: event.category || 'general',
+        type: event.type,
+        source: event.source,
+        accountNumber: rawPayload.accountNumber,
+        referenceNumber: rawPayload.referenceNumber,
+        balance: rawPayload.balance !== undefined ? rawPayload.balance : null,
+        bankName: rawPayload.bankName,
+        fingerprint,
+        timestamp: event.timestamp || new Date(),
+        rawText: rawPayload.originalBody || null,
       },
     });
 
-    return { cascadeEval, insightCreated };
+    // 4. Update User buffer balance
+    const user = await prisma.user.findUnique({
+      where: { id: event.userId },
+      include: { obligations: true },
+    });
+
+    let newBalance = Number(user?.bufferBalance || 0);
+
+    if (rawPayload.balance !== undefined && rawPayload.balance !== null && !isNaN(Number(rawPayload.balance))) {
+      newBalance = Number(rawPayload.balance);
+    } else {
+      if (event.type === 'credit') {
+        newBalance += Number(event.amount);
+      } else {
+        newBalance -= Number(event.amount);
+      }
+    }
+
+    await prisma.user.upsert({
+      where: { id: event.userId },
+      update: { bufferBalance: newBalance },
+      create: { id: event.userId, bufferBalance: newBalance },
+    });
+
+    // 5. Check if buffer has a deficit against upcoming monthly obligations
+    let insightCreated: any = undefined;
+    if (user?.obligations && user.obligations.length > 0) {
+      const outflowObligations = user.obligations.filter((o: any) => o.type === 'outflow');
+      const totalRequired = outflowObligations.reduce((sum: number, o: any) => sum + Number(o.amount), 0);
+
+      if (newBalance < totalRequired && outflowObligations.length > 0) {
+        const shortfall = totalRequired - newBalance;
+        const explanation = `Your current balance is ₹${newBalance.toLocaleString('en-IN')}. This creates an upcoming ₹${shortfall.toLocaleString('en-IN')} shortfall for your scheduled obligations (${outflowObligations.map((o: any) => `${o.label}: ₹${Number(o.amount).toLocaleString('en-IN')}`).join(', ')}).`;
+
+        insightCreated = await prisma.insight.create({
+          data: {
+            userId: event.userId,
+            triggerType: 'shortfall',
+            severity: Math.min(100, Math.round((shortfall / totalRequired) * 100)),
+            status: 'surfaced',
+            explanation,
+            actions: [
+              {
+                id: `act_${Date.now()}_1`,
+                title: 'Review Upcoming Expenses',
+                description: `Buffer is ₹${shortfall.toLocaleString('en-IN')} below scheduled payments.`,
+                actionType: 'budget_shift',
+                impactAmount: shortfall,
+              },
+            ],
+          },
+        });
+      }
+    }
+
+    console.log(`✅ [Pipeline] Processed ${event.type.toUpperCase()} ₹${event.amount} (${event.merchant}). Updated Buffer: ₹${newBalance}`);
+
+    return {
+      dedupResult: {
+        isMerged: false,
+        fingerprint,
+        transactionId: transaction.id,
+      },
+      transaction,
+      insightCreated,
+    };
   }
 }

@@ -79,15 +79,14 @@ export class MultiAgentCouncil {
 
     // 2. 📈 Gig Inflow Forecaster Agent
     // Inspect historical incoming credit events for alternative incoming flows
-    const historicalInflows = await prisma.rawEvent.findMany({
-      where: { userId },
+    const historicalInflows = await prisma.transaction.findMany({
+      where: { userId, type: 'credit' },
       take: 20,
-      orderBy: { createdAt: 'desc' },
+      orderBy: { timestamp: 'desc' },
     });
 
     const hasUpworkInflow = historicalInflows.some(e => {
-      const p = e.rawPayload as any;
-      return (p?.merchant || '').toLowerCase().includes('upwork') || (p?.sender || '').toLowerCase().includes('upwork');
+      return (e.merchant || '').toLowerCase().includes('upwork');
     });
 
     const forecasterStatement: CouncilMemberStatement = {

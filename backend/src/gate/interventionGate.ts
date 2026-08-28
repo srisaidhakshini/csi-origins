@@ -111,17 +111,8 @@ export class InterventionGate {
         userId: input.userId,
         triggerType: input.triggerType,
         severity: input.severity,
-        confidence: input.confidence,
-        urgency: input.urgency,
-        gateScore,
         status,
         explanation: councilResult.executiveSummary,
-        graphPath: input.graphPath,
-        councilDebate: {
-          statements: councilResult.statements,
-          consensusStatus: status,
-          deliberatedAt: new Date().toISOString(),
-        } as any,
         actions: councilResult.proposedActions as any,
       },
     });
