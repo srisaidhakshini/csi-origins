@@ -98,14 +98,14 @@ router.get('/status', async (req: Request, res: Response) => {
     // Fetch recent events ingested from gmail
     const gmailEvents = await prisma.rawEvent.findMany({
       where: { userId, source: 'gmail' },
-      orderBy: { timestamp: 'desc' },
+      orderBy: { createdAt: 'desc' },
       take: 10,
     });
 
     res.json({
       success: true,
       isConnected: Boolean(user?.gmailRefreshToken),
-      email: user?.email || 'gowreesh@gmail.com',
+      email: (user as any)?.email || 'gowreesh@gmail.com',
       recentTransactionsCount: gmailEvents.length,
       recentTransactions: gmailEvents,
     });
