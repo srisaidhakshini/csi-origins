@@ -9,10 +9,16 @@ generator client {
 
 model User {
   id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  googleId          String?       @unique @map("google_id")
+  email             String?       @unique
+  name              String?
+  profilePicture    String?       @map("profile_picture") @db.Text
   persona           String?       @default("Freelancer")
   bufferBalance     Decimal       @default(0.0) @map("buffer_balance") @db.Decimal(12, 2)
   riskTolerance     String?       @default("medium") @map("risk_tolerance")
-  gmailRefreshToken String?       @map("gmail_refresh_token")
+  gmailRefreshToken String?       @map("gmail_refresh_token") @db.Text
+  smsEnabled        Boolean       @default(false) @map("sms_enabled")
+  hasCompletedOnboarding Boolean  @default(false) @map("has_completed_onboarding")
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz
 
   transactions      Transaction[]
@@ -64,7 +70,7 @@ model Obligation {
 model Insight {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId        String   @map("user_id") @db.Uuid
-  triggerType   String   @map("trigger_type") // 'shortfall' | 'anomaly' | 'reminder'
+  triggerType   String   @map("trigger_type") // 'shortfall' | 'anomaly' | 'reminder' | 'cascade'
   severity      Decimal? @db.Decimal(5, 2)
   status        String   @default("surfaced") // 'surfaced' | 'suppressed' | 'resolved'
   explanation   String?  @db.Text

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../models/insight.dart';
 import '../services/api_service.dart';
 import '../widgets/emergency_call_dialog.dart';
 import 'onboarding_screen.dart';
+import 'settings_screen.dart';
+import '../main.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -116,11 +119,38 @@ class _WalletScreenState extends State<WalletScreen> {
       backgroundColor: const Color(0xFFF4F7FC),
       appBar: AppBar(
         backgroundColor: const Color(0xFF0D32B2),
-        title: const Text('Origin Dashboard'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Origin Dashboard', style: TextStyle(fontSize: 16)),
+            if (AppSession.userName != null && AppSession.userName!.isNotEmpty)
+              Text('Welcome, ${AppSession.userName}', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             onPressed: _loadData,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Center(
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                },
+                child: AppSession.userPicture != null && AppSession.userPicture!.isNotEmpty
+                    ? CircleAvatar(
+                        backgroundImage: NetworkImage(AppSession.userPicture!),
+                        radius: 16,
+                      )
+                    : const CircleAvatar(
+                        backgroundColor: Colors.white24,
+                        radius: 16,
+                        child: Icon(Icons.person, color: Colors.white, size: 20),
+                      ),
+              ),
+            ),
           ),
         ],
       ),
@@ -166,61 +196,100 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                         const SizedBox(height: 20),
 
-                        // Section 1: Money Received From (Inflows)
+                        // Spend vs Income Trend Graph
                         const Text(
-                          'MONEY RECEIVED FROM (INFLOWS)',
+                          'CASH FLOW TREND (LAST 7 DAYS)',
                           style: TextStyle(color: Color(0xFF5A6E85), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
                         ),
-                        const SizedBox(height: 8),
-                        if (inflowObligations.isEmpty && creditTransactions.isEmpty)
-                          _buildEmptyPlaceholder('No income streams or credit deposits recorded yet.')
-                        else ...[
-                          for (final o in inflowObligations)
-                            _buildInflowCard(
-                              o['label']?.toString() ?? 'Income Retainer',
-                              _currencyFormatter.format(double.tryParse(o['amount']?.toString() ?? '0') ?? 0.0),
-                              'Expected Monthly • Day ${o['dueDay'] ?? 1}',
-                              'SCHEDULED',
-                              true,
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                            ],
+                          ),
+                          height: 200,
+                          child: LineChart(
+                            LineChartData(
+                              gridData: FlGridData(show: false),
+                              titlesData: FlTitlesData(
+                                show: true,
+                                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 22,
+                                    interval: 1,
+                                    getTitlesWidget: (value, meta) {
+                                      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                                      if (value.toInt() >= 0 && value.toInt() < days.length) {
+                                        return Text(days[value.toInt()], style: const TextStyle(color: Color(0xFF8A99AD), fontSize: 10));
+                                      }
+                                      return const Text('');
+                                    },
+                                  ),
+                                ),
+                              ),
+                              borderData: FlBorderData(show: false),
+                              lineBarsData: [
+                                LineChartBarData(
+                                  spots: const [
+                                    FlSpot(0, 1000),
+                                    FlSpot(1, 1500),
+                                    FlSpot(2, 800),
+                                    FlSpot(3, 2000),
+                                    FlSpot(4, 1200),
+                                    FlSpot(5, 3000),
+                                    FlSpot(6, 2500),
+                                  ],
+                                  isCurved: true,
+                                  color: const Color(0xFF1548DC),
+                                  barWidth: 3,
+                                  isStrokeCapRound: true,
+                                  dotData: const FlDotData(show: false),
+                                  belowBarData: BarAreaData(
+                                    show: true,
+                                    color: const Color(0xFF1548DC).withOpacity(0.1),
+                                  ),
+                                ),
+                              ],
                             ),
-                          for (final t in creditTransactions)
-                            _buildInflowCard(
-                              t['merchant']?.toString() ?? 'Credit Deposit',
-                              _currencyFormatter.format(double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0),
-                              'Bank Deposit • ${t['category'] ?? 'income'}',
-                              'RECEIVED',
-                              true,
-                            ),
-                        ],
-                        const SizedBox(height: 20),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
 
-                        // Section 2: Money Spent On (Outflows & Obligations)
-                        const Text(
-                          'UPCOMING DEMANDS & RECENT SPENT',
-                          style: TextStyle(color: Color(0xFF5A6E85), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                        // Recent Transfers
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'RECENT TRANSFERS',
+                              style: TextStyle(color: Color(0xFF5A6E85), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                            ),
+                            TextButton(
+                              onPressed: () {},
+                              child: const Text('See All', style: TextStyle(fontSize: 11, color: Color(0xFF1548DC))),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 8),
-                        if (outflowObligations.isEmpty && debitTransactions.isEmpty)
-                          _buildEmptyPlaceholder('No scheduled obligations or debits recorded.')
-                        else ...[
-                          for (final o in outflowObligations)
-                            _buildOutflowCard(
-                              o['label']?.toString() ?? 'Monthly Obligation',
-                              _currencyFormatter.format(double.tryParse(o['amount']?.toString() ?? '0') ?? 0.0),
-                              'Scheduled Monthly • Due Day ${o['dueDay'] ?? 5}',
-                              hasShortfall ? 'DEFICIT RISK' : 'COVERED',
-                              hasShortfall,
-                            ),
-                          for (final t in debitTransactions)
-                            _buildOutflowCard(
-                              t['merchant']?.toString() ?? 'Debit Purchase',
-                              _currencyFormatter.format(double.tryParse(t['amount']?.toString() ?? '0') ?? 0.0),
-                              'Bank Debit • ${t['category'] ?? 'spend'}',
-                              'DEBITED',
-                              false,
-                            ),
-                        ],
-                        const SizedBox(height: 20),
+                        SizedBox(
+                          height: 90,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            children: [
+                              _buildTransferAvatar('Alex', 'https://i.pravatar.cc/150?u=a042581f4e29026704d'),
+                              _buildTransferAvatar('Sarah', 'https://i.pravatar.cc/150?u=a042581f4e29026704e'),
+                              _buildTransferAvatar('Mike', 'https://i.pravatar.cc/150?u=a042581f4e29026704f'),
+                              _buildTransferAvatar('Emma', 'https://i.pravatar.cc/150?u=a042581f4e29026704g'),
+                              _buildTransferAvatar('John', 'https://i.pravatar.cc/150?u=a042581f4e29026704h'),
+                            ],
+                          ),
+                        ),
 
                         // Section 3: Active Interventions & 1-Click Action Hub
                         if (_insights.isNotEmpty) ...[
@@ -248,6 +317,25 @@ class _WalletScreenState extends State<WalletScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildTransferAvatar(String name, String imageUrl) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 16.0),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 26,
+            backgroundImage: NetworkImage(imageUrl),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            name,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0A1628)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -375,137 +463,7 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
-  Widget _buildInflowCard(String payer, String amount, String details, String tag, bool isConfirmed) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1548DC).withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEBF1FF),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.arrow_downward_rounded, color: Color(0xFF1548DC), size: 18),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(payer, style: const TextStyle(color: Color(0xFF1C2434), fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(details, style: const TextStyle(color: Color(0xFF5A6E85), fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(amount, style: const TextStyle(color: Color(0xFF00A86B), fontSize: 13, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isConfirmed ? const Color(0xFFEBF1FF) : const Color(0xFFF1F3F7),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  tag,
-                  style: TextStyle(
-                    color: isConfirmed ? const Color(0xFF1548DC) : const Color(0xFF8A99AD),
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildOutflowCard(String merchant, String amount, String category, String status, bool isAtRisk) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1548DC).withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: isAtRisk ? const Color(0xFFFFEBEE) : const Color(0xFFF1F3F7),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              isAtRisk ? Icons.warning_amber_rounded : Icons.arrow_upward_rounded,
-              color: isAtRisk ? const Color(0xFFC62828) : const Color(0xFF5A6E85),
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(merchant, style: const TextStyle(color: Color(0xFF1C2434), fontSize: 13, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(category, style: const TextStyle(color: Color(0xFF5A6E85), fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(amount, style: const TextStyle(color: Color(0xFF1C2434), fontSize: 13, fontWeight: FontWeight.w800)),
-              const SizedBox(height: 2),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isAtRisk ? const Color(0xFFFFEBEE) : const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(
-                    color: isAtRisk ? const Color(0xFFC62828) : const Color(0xFF2E7D32),
-                    fontSize: 8.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildInterventionCard(Insight ins) {
     return Container(

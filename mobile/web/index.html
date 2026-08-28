@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <title>Origin Autonomous Financial Copilot</title>
+  <title>Finova — Financial Copilot</title>
   <link rel="manifest" href="manifest.json">
 
   <!-- Google Fonts: Bricolage Grotesque -->
@@ -28,18 +28,21 @@
       padding: 0;
       width: 100%;
       height: 100%;
-      background-color: #F4F7FC;
+      background-color: #0A1628;
       font-family: 'Bricolage Grotesque', system-ui, -apple-system, sans-serif;
     }
   </style>
 </head>
 <body>
   <script>
-    window.openGoogleOAuth = function(url) {
-      try {
-        window.open(url, '_blank');
-      } catch (e) {
-        console.error('Error opening OAuth window, redirecting:', e);
+    window.openGoogleOAuth = function(url, usePopup = false) {
+      if (usePopup) {
+        const width = 500;
+        const height = 600;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        window.open(url, 'google_oauth', `width=${width},height=${height},left=${left},top=${top},status=yes,scrollbars=yes`);
+      } else {
         window.location.href = url;
       }
     };

@@ -25,9 +25,9 @@ void stopWebCopilotAlert() {
   }
 }
 
-void openWebUrl(String url) {
+void openWebUrl(String url, {bool usePopup = false}) {
   try {
-    js.context.callMethod('openGoogleOAuth', [url]);
+    js.context.callMethod('openGoogleOAuth', [url, usePopup]);
   } catch (e) {
     // ignore
   }
