@@ -34,10 +34,10 @@ app.get('/api/image-proxy', async (req, res) => {
     if (!url) {
       return res.status(400).send('URL is required');
     }
-    const fetch = (await import('node-fetch')).default;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch image');
-    const buffer = await response.buffer();
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
     res.set('Content-Type', response.headers.get('content-type') || 'image/jpeg');
     res.set('Cache-Control', 'public, max-age=86400');
     res.send(buffer);
