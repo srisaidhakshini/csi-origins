@@ -86,6 +86,9 @@ export class IncomeForecaster {
       select: { amount: true, timestamp: true },
     });
 
-    return forecastIncome(transactions);
+    return forecastIncome(transactions.map(transaction => ({
+      amount: Number(transaction.amount),
+      timestamp: transaction.timestamp,
+    })));
   }
 }
