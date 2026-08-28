@@ -96,7 +96,7 @@ router.get('/status', async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     
     // Fetch recent events ingested from gmail
-    const gmailEvents = await prisma.rawEvent.findMany({
+    const gmailEvents = await prisma.transaction.findMany({
       where: { userId, source: 'gmail' },
       orderBy: { createdAt: 'desc' },
       take: 10,

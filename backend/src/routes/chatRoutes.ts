@@ -50,7 +50,7 @@ router.post('/', async (req: Request, res: Response) => {
     } catch (_) {}
 
     const bufferNode = nodes.find(n => n.type === 'buffer');
-    const bufferVal = bufferNode?.value ? Number(bufferNode.value) : 12000;
+    const bufferVal = bufferNode?.value ? Number(bufferNode.value) : (user?.bufferBalance ? Number(user.bufferBalance) : 12000);
     const incomeNodes = nodes.filter(n => n.type === 'income_source');
     const obligationNodes = nodes.filter(n => n.type === 'obligation');
 

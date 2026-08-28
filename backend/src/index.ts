@@ -31,7 +31,8 @@ app.use('/api/chat', chatRoutes);
 app.get('/health', async (_req, res) => {
   try {
     const userCount = await prisma.user.count();
-    const nodeCount = await prisma.node.count();
+    const transactionCount = await prisma.transaction.count();
+    const obligationCount = await prisma.obligation.count();
     const insightCount = await prisma.insight.count();
 
     res.json({
@@ -40,7 +41,8 @@ app.get('/health', async (_req, res) => {
       database: 'connected',
       stats: {
         users: userCount,
-        nodes: nodeCount,
+        transactions: transactionCount,
+        obligations: obligationCount,
         insights: insightCount,
       },
       timestamp: new Date().toISOString(),
