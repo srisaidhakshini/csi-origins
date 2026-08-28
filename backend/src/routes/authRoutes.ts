@@ -105,7 +105,7 @@ router.get('/status', async (req: Request, res: Response) => {
     res.json({
       success: true,
       isConnected: Boolean(user?.gmailRefreshToken),
-      email: (user as any)?.email || 'gowreesh@gmail.com',
+      email: (user as any)?.email,
       recentTransactionsCount: gmailEvents.length,
       recentTransactions: gmailEvents,
     });
