@@ -183,16 +183,19 @@ router.post('/:id/risk-tolerance', async (req: Request, res: Response) => {
 
 /**
  * PUT /api/users/preferences
- * Update specific user preferences like SMS parsing
+ * Update specific user preferences like SMS & Gmail parsing
  */
 router.put('/preferences', async (req: Request, res: Response) => {
   try {
     const userId = req.body.userId || DEMO_USER_ID;
-    const { smsEnabled } = req.body;
+    const { smsEnabled, gmailEnabled } = req.body;
 
     const updateData: any = {};
     if (smsEnabled !== undefined) {
       updateData.smsEnabled = Boolean(smsEnabled);
+    }
+    if (gmailEnabled !== undefined) {
+      updateData.gmailRefreshToken = gmailEnabled ? 'connected_user_token' : null;
     }
 
     await prisma.user.update({

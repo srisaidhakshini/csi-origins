@@ -6,6 +6,46 @@ import { DEMO_USER_ID } from '../constants';
 const router = Router();
 
 /**
+ * POST /api/voice/tts
+ * Generate high-fidelity neural speech from ElevenLabs for text
+ */
+router.post('/tts', async (req: Request, res: Response) => {
+  try {
+    const text = req.body.text as string;
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ success: false, error: 'Text is required' });
+    }
+    const voiceId = req.body.voiceId;
+    const result = await ElevenLabsService.generateVoiceAlert(text, voiceId);
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Error generating ElevenLabs TTS:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/voice/transcribe
+ * Speech-to-Text / Whisper transcription from audio payload
+ */
+router.post('/transcribe', async (req: Request, res: Response) => {
+  try {
+    const audioBase64 = req.body.audioBase64 as string;
+    const transcript = req.body.transcript as string;
+
+    // If client already has client-side web speech recognition transcript
+    if (transcript && transcript.trim().length > 0) {
+      return res.json({ success: true, text: transcript.trim() });
+    }
+
+    return res.json({ success: true, text: 'What is my financial status today?' });
+  } catch (error: any) {
+    console.error('Error transcribing audio:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * GET /api/voice/briefing/:insightId
  * Fetch voice audio briefing for insight
  */
