@@ -46,38 +46,38 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C0F17),
+      backgroundColor: const Color(0xFF000000),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121622),
-        elevation: 0,
-        title: const Row(
-          children: [
-            Icon(Icons.auto_awesome, color: Colors.indigoAccent, size: 20),
-            SizedBox(width: 8),
-            Text(
-              'Surfaced Insights Feed',
-              style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
+        backgroundColor: const Color(0xFF000000),
+        title: const Text('// ACTIVE INSIGHTS FEED'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white70),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loadInsights,
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(color: Colors.white24, height: 1),
+        ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: ElevatedButton.icon(
         onPressed: _openSimulator,
-        backgroundColor: Colors.indigoAccent,
-        icon: const Icon(Icons.bolt, color: Colors.white),
-        label: const Text('Live Simulator', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        icon: const Icon(Icons.bolt, color: Colors.black, size: 16),
+        label: const Text('EVENT SIMULATOR'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: _loadInsights,
-        color: Colors.indigoAccent,
+        color: Colors.white,
+        backgroundColor: const Color(0xFF111111),
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.indigoAccent))
+            ? const Center(child: CircularProgressIndicator(color: Colors.white))
             : ListView(
                 padding: const EdgeInsets.only(bottom: 80, top: 12),
                 children: [
@@ -86,28 +86,25 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
                   const SizedBox(height: 12),
 
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'ACTIVE PROACTIVE ALERTS (${_insights.length})',
+                          'SURFACED SIGNALS (${_insights.length})',
                           style: const TextStyle(
-                            color: Colors.white54,
+                            color: Colors.white70,
                             fontSize: 11,
-                            fontWeight: FontWeight.bold,
+                            fontWeight: FontWeight.w900,
                             letterSpacing: 1.0,
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.greenAccent.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          color: const Color(0xFF222222),
                           child: const Text(
-                            'Gate Score ≥ 60.0',
-                            style: TextStyle(color: Colors.greenAccent, fontSize: 10, fontWeight: FontWeight.bold),
+                            'GATE SCORE ≥ 60.0',
+                            style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w900),
                           ),
                         ),
                       ],
@@ -116,25 +113,37 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
 
                   if (_insights.isEmpty) ...[
                     const SizedBox(height: 60),
-                    const Center(
-                      child: Column(
-                        children: [
-                          Icon(Icons.check_circle_outline, color: Colors.greenAccent, size: 48),
-                          SizedBox(height: 12),
-                          Text(
-                            'Financial State Healthy',
-                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'No critical cascade shortfalls or spend anomalies detected.',
-                            style: TextStyle(color: Colors.white54, fontSize: 12),
-                          ),
-                        ],
+                    Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 14),
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF111111),
+                          border: Border.all(color: Colors.white24, width: 1),
+                        ),
+                        child: const Column(
+                          children: [
+                            Icon(Icons.check_circle_outline, color: Colors.white, size: 32),
+                            SizedBox(height: 10),
+                            Text(
+                              'FINANCIAL STATE STABLE',
+                              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w900),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'No critical cascade shortfalls or spend anomalies detected.',
+                              style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ] else ...[
-                    for (final ins in _insights) InsightCard(insight: ins),
+                    for (final ins in _insights)
+                      InsightCard(
+                        insight: ins,
+                        onActionUpdated: _loadInsights,
+                      ),
                   ],
                 ],
               ),
@@ -147,16 +156,8 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Colors.indigo.shade900.withOpacity(0.6),
-            const Color(0xFF1E2230),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.indigoAccent.withOpacity(0.3)),
+        color: const Color(0xFF111111),
+        border: Border.all(color: Colors.white24, width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,12 +166,12 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'PRIMARY CHECKING BUFFER',
-                style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                'PRIMARY LIQUIDITY BUFFER',
+                style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.0),
               ),
               Text(
                 'HDFC **4092',
-                style: TextStyle(color: Colors.white70, fontSize: 11),
+                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w900),
               ),
             ],
           ),
@@ -185,18 +186,18 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
               ),
               SizedBox(width: 8),
               Text(
-                'Target: ₹15,000',
-                style: TextStyle(color: Colors.white38, fontSize: 12),
+                '// TARGET: ₹15,000',
+                style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w700),
               ),
             ],
           ),
-          const Divider(color: Colors.white12, height: 20),
+          const Divider(color: Colors.white12, height: 20, thickness: 1),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildHeaderStat('Upcoming Obligations', '₹36,500', Colors.amberAccent),
-              _buildHeaderStat('Expected Retainer', '₹35,000', Colors.cyanAccent),
-              _buildHeaderStat('Emergency Goal', '₹45,000', Colors.greenAccent),
+              _buildHeaderStat('UPCOMING DEMANDS', '₹36,500'),
+              _buildHeaderStat('EXPECTED INFLOW', '₹35,000'),
+              _buildHeaderStat('EMERGENCY GOAL', '₹45,000'),
             ],
           ),
         ],
@@ -204,13 +205,13 @@ class _InsightsFeedScreenState extends State<InsightsFeedScreen> {
     );
   }
 
-  Widget _buildHeaderStat(String title, String val, Color valColor) {
+  Widget _buildHeaderStat(String title, String val) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(color: Colors.white54, fontSize: 10)),
+        Text(title, style: const TextStyle(color: Colors.white38, fontSize: 9, fontWeight: FontWeight.w900)),
         const SizedBox(height: 2),
-        Text(val, style: TextStyle(color: valColor, fontSize: 13, fontWeight: FontWeight.bold)),
+        Text(val, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)),
       ],
     );
   }
