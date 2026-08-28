@@ -18,12 +18,20 @@ router.post('/execute', async (req: Request, res: Response) => {
     }
 
     const insight = await prisma.insight.findUnique({ where: { id: insightId } });
-    if (!insight) {
+    if (!insight || insight.userId !== userId) {
       return res.status(404).json({ success: false, error: 'Insight not found' });
     }
 
     // Update action status in the insight JSON
     const actions = (insight.actions as any[]) || [];
+    const requestedAction = actions.find(act => act.id === actionId);
+    if (!requestedAction) {
+      return res.status(404).json({ success: false, error: 'Action not found for insight' });
+    }
+    if (requestedAction.status !== 'pending') {
+      return res.status(409).json({ success: false, error: 'Action is no longer pending' });
+    }
+
     const updatedActions = actions.map(act => {
       if (act.id === actionId) {
         return { ...act, status: 'executed', executedAt: new Date().toISOString() };
@@ -36,13 +44,14 @@ router.post('/execute', async (req: Request, res: Response) => {
       data: { actions: updatedActions },
     });
 
-    let executionMessage = 'Action executed successfully.';
-    if (actionType === 'invoice_nudge') {
-      executionMessage = `📧 Invoice payment reminder successfully dispatched to ${payload?.recipient || 'client'}!`;
-    } else if (actionType === 'sip_pause') {
-      executionMessage = '⏸️ Mutual Fund SIP pause requested for the upcoming cycle to protect buffer.';
-    } else if (actionType === 'budget_shift') {
-      executionMessage = '🛡️ Temporary 7-day spending soft-cap activated on discretionary categories.';
+    const requestedActionType = requestedAction.actionType || actionType;
+    let executionMessage = 'Recommendation acknowledged successfully.';
+    if (requestedActionType === 'invoice_nudge') {
+      executionMessage = 'Invoice reminder recommendation acknowledged for user review.';
+    } else if (requestedActionType === 'sip_pause') {
+      executionMessage = 'SIP pause recommendation acknowledged for user review.';
+    } else if (requestedActionType === 'budget_shift') {
+      executionMessage = 'Discretionary spending recommendation acknowledged for user review.';
     }
 
     console.log(`⚡ [ACTION EXECUTED] ${actionType} (${actionId}) on Insight ${insightId.substring(0, 8)}`);
@@ -51,7 +60,7 @@ router.post('/execute', async (req: Request, res: Response) => {
       success: true,
       message: executionMessage,
       actionId,
-      actionType,
+      actionType: requestedActionType,
       status: 'executed',
       timestamp: new Date().toISOString(),
     });
