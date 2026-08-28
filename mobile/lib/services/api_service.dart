@@ -80,6 +80,44 @@ class ApiService {
     return [];
   }
 
+  /// Fetch dynamic user profile (Name, Archetype, Net Worth, Risk Tolerance)
+  static Future<Map<String, dynamic>?> fetchUserProfile({String userId = demoUserId}) async {
+    final uri = Uri.parse('$baseUrl/users/$userId');
+    try {
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['user'];
+      }
+    } catch (e) {
+      debugPrint('Error fetching user profile: $e');
+    }
+    return null;
+  }
+
+  /// Update dynamic user profile (Name, Archetype, etc.)
+  static Future<bool> updateUserProfile({
+    required String name,
+    String? archetype,
+    String userId = demoUserId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/users/$userId/profile');
+    try {
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'name': name,
+          if (archetype != null) 'archetype': archetype,
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('Error updating user profile: $e');
+      return false;
+    }
+  }
+
   /// Update risk tolerance setting
   static Future<bool> updateRiskTolerance(String tolerance, {String userId = demoUserId}) async {
     final uri = Uri.parse('$baseUrl/users/$userId/risk-tolerance');
