@@ -30,6 +30,7 @@ router.get('/login', (req: Request, res: Response) => {
     scope: [
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/gmail.readonly',
     ],
     state,
   });
@@ -49,6 +50,7 @@ router.get('/connect-gmail', (req: Request, res: Response) => {
     scope: [
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/gmail.readonly',
     ],
     state,
   });
@@ -68,6 +70,7 @@ router.get('/url', (req: Request, res: Response) => {
     scope: [
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/gmail.readonly',
     ],
     state,
   });

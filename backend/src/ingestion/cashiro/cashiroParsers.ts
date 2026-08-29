@@ -414,8 +414,8 @@ export class CanaraBankParser implements BankParser {
     if (!type || !extracted) return null;
 
     let rawMerchant = '';
-    const toMatch = body.match(/(?:to|towards|at)\s+([A-Za-z0-9\s._\-@&]+?)(?:\s+(?:on|via|ref|bal|\.|\n|$))/i);
-    const fromMatch = body.match(/(?:from|by)\s+([A-Za-z0-9\s._\-@&]+?)(?:\s+(?:on|via|ref|bal|\.|\n|$))/i);
+    const toMatch = body.match(/(?:to|towards|at)\s+([A-Za-z0-9\s_\-@&]+?)(?:\s+(?:on|via|ref|bal|total|\.|\n|$)|[.,;\n]|$)/i);
+    const fromMatch = body.match(/(?:from|by)\s+([A-Za-z0-9\s_\-@&]+?)(?:\s+(?:on|via|ref|bal|total|\.|\n|$)|[.,;\n]|$)/i);
 
     if (type === 'credit' && fromMatch) {
       rawMerchant = fromMatch[1];

@@ -9,8 +9,12 @@ export function normalizeMerchant(raw: string): string {
 
   let cleaned = raw.trim();
 
-  // 1. Remove common banking routing & protocol leading tokens
-  cleaned = cleaned.replace(/^(?:VPA|UPI|INFO|NEFT|IMPS|RTGS|POS|ACH|BIL|VPS|AT|TRANSFER\s*TO|PAYMENT\s*TO|PAID\s*TO|TO|FROM|BY)\s*[-/:]?\s*/i, '');
+  // 1. Remove common banking routing & protocol leading tokens repeatedly
+  let previous = '';
+  while (previous !== cleaned) {
+    previous = cleaned;
+    cleaned = cleaned.replace(/^(?:VPA|UPI|INFO|NEFT|IMPS|RTGS|POS|ACH|BIL|VPS|AT|TRANSFER\s*TO|PAYMENT\s*TO|PAID\s*TO|TO|FROM|BY)\s*[-/:]?\s*/i, '').trim();
+  }
   
   // 2. Clean UPI IDs / VPA handles (e.g. "zomato@icici" -> "Zomato", "merchant.pay@okhdfc" -> "Merchant Pay")
   if (cleaned.includes('@')) {
@@ -18,7 +22,7 @@ export function normalizeMerchant(raw: string): string {
   }
 
   // 3. Remove trailing routing words, reference numbers, or transaction metadata
-  cleaned = cleaned.replace(/\b(?:on|via|ref|using|avbl|avl|bal|dated|upi\s*ref|upi)\b.*$/i, '');
+  cleaned = cleaned.replace(/\b(?:on|via|ref|using|avbl|avl|bal|balance|total\s*bal|dated|upi\s*ref|upi)\b.*$/i, '');
   cleaned = cleaned.replace(/[0-9]{6,}/g, '');
   cleaned = cleaned.replace(/\bRef\s*#?[A-Za-z0-9]+\b/gi, '');
 
