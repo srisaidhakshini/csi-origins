@@ -22,6 +22,7 @@ export function getGoogleAuthUrl(state?: string): string {
     scope: [
       'https://www.googleapis.com/auth/userinfo.email',
       'https://www.googleapis.com/auth/userinfo.profile',
+      'https://www.googleapis.com/auth/gmail.readonly',
     ],
     state: state || 'demo_user'
   });
@@ -109,9 +110,13 @@ export async function pollGmailForUser(userId: string, maxResults = 10): Promise
     }
 
     return payloads;
-  } catch (error) {
-    console.error('Error querying Gmail API:', error);
-    return getMockGmailMessages();
+  } catch (error: any) {
+    if (error?.message?.includes('Insufficient Permission') || error?.code === 403) {
+      console.warn(`⚠️ [GmailClient] User ${userId} has insufficient Gmail permissions. Please reconnect Gmail to grant 'gmail.readonly' scope.`);
+    } else {
+      console.error('Error querying Gmail API:', error?.message || error);
+    }
+    return [];
   }
 }
 
