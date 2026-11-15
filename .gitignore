@@ -7,5 +7,4 @@ build/
 .flutter-plugins-dependencies
 .packages
 *.log
-.env
-.env.local
+config.bat
